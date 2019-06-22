@@ -590,25 +590,42 @@ function handleCountryScores(data, channel) {
         databaseManager.getFirstPlaceForMap(beatmapId, (err, rows) => {
             if (err) {
                 logger.info(err);
+                updateScoresForMap(beatmapId, data).then(() => resolve());
             } else {
                 let isNewScore = rows.length === 0;
                 let message = firstPlace.u + "\n" + data.scoreData + "\n" + data.mapLink;
 
-                if (isNewScore || firstPlace.d !== rows[0].date) {
-                    //New highscore
-                    if (isNewScore) {
-                        publishMessage("New first place is " + message);
-                    } else if (!(firstPlace.id === rows[0].playerId)) {
-                        notifyLinkedUser(rows[0].playerId, data);
-                        publishMessage(rows[0].playerName + " was sniped by " + message);
-                    }
-                } else if (channel) channel.send("First place is " + message);
+                if (isNewScore) {
+                    publishMessage("New first place is " + message);
+                    updateScoresForMap(beatmapId, data).then(() => resolve());
+                } else {
+                    let oldDate = rows[0].date;
+                    updateScoresForMap(beatmapId, data).then(() => {
+                        databaseManager.getPlayersToNotify(beatmapId, oldDate, firstPlace.d, (err, playerIds) => {
+                            if (err) {
+                                logger.info(err);
+                            } else {
+                                if (playerIds.length === 0 && channel) {
+                                    channel.send("First place is " + message);
+                                } else {
+                                    notifyLinkedUsers(playerIds, data);
+                                    publishMessage(rows[0].playerName + " was sniped by " + message);
+                                }
+                            }
+                        });
+                    });
+                }
             }
         });
+    });
+}
 
+function updateScoresForMap(beatmapId, data) {
+    return new Promise(resolve => {
         databaseManager.deleteScoresForMap(beatmapId, err => {
             if (err) logger.info(err);
-            databaseManager.bulkAddScoreRows(beatmapId, data.scores, err => {
+            let count = Math.min(5, data.scores.length);
+            databaseManager.bulkAddScoreRows(beatmapId, data.scores.slice(0, count), err => {
                 if (err) logger.info(err);
                 resolve();
             });
@@ -616,16 +633,17 @@ function handleCountryScores(data, channel) {
     });
 }
 
-function notifyLinkedUser(oldFirstPlaceId, data) {
+function notifyLinkedUsers(playerIds, data) {
     let firstPlace = data.scores[0];
 
-    let localUser = getUserFromDb(oldFirstPlaceId);
-    if (localUser) {
-        bot.fetchUser(localUser).then(user => {
-            user.send("You were sniped by " + firstPlace.u + "\n" + data.scoreData + "\n" + data.mapLink);
-        }).catch(error => logger.info(error));
-    }
-    return true;
+    playerIds.forEach(playerId => {
+        let localUser = getUserFromDb(playerId);
+        if (localUser) {
+            bot.fetchUser(localUser).then(user => {
+                user.send("You were sniped by " + firstPlace.u + "\n" + data.scoreData + "\n" + data.mapLink);
+            }).catch(error => logger.info(error));
+        }
+    });
 }
 
 function publishMessage(message) {
@@ -725,7 +743,7 @@ function resolveResponse(response, reject, resolve) {
         let parsedScores = {
             beatmapId: beatmapId,
             mapLink: "https://osu.ppy.sh/b/" + beatmapId,
-            scoreData: "Mode: " + scores[0].mode + " | Score: " + scores[0].score,
+            scoreData: "Mode: " + scores[0].mode + " | Score: " + scores[0].score.toLocaleString(),
             scores: []
         };
         for (let i = 0; i < scores.length; i++) {
@@ -733,9 +751,9 @@ function resolveResponse(response, reject, resolve) {
             let scoreInfo = {
                 id: parseInt(score.user.id),
                 u: score.user.username,
-                d: score.created_at
+                d: score.created_at,
+                s: score.score
             };
-            if (i === 0) scoreInfo.s = score.score.toLocaleString();
             parsedScores.scores.push(scoreInfo);
         }
         resolve(parsedScores);

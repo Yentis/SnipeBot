@@ -27,7 +27,7 @@ module.exports = {
         db.serialize(() => {
             db.run("BEGIN TRANSACTION");
             maps.forEach(score => {
-                db.run("INSERT INTO Scores VALUES (?, ?, ?, ?, ?)", [mapId, score.id, score.u, score.d, score.s ? score.s : null], err => {
+                db.run("INSERT INTO Scores VALUES (?, ?, ?, ?, ?)", [mapId, score.id, score.u, score.d, score.s ? score.s : 0], err => {
                     if (err && err.message.indexOf("UNIQUE constraint failed") === -1) {
                         errors.push(err.message);
                     }
@@ -107,25 +107,34 @@ module.exports = {
         });
     },
     getFirstPlacesForPlayer: (playerId, mode, callback) => {
-        let query = 'SELECT * FROM Beatmaps INNER JOIN Scores ON Scores.mapId = Beatmaps.mapId WHERE playerId = ? AND score IS NOT NULL AND mode = ? ORDER BY difficulty DESC';
+        let query = 'SELECT * FROM (SELECT mapId, MAX(score) AS max_score FROM Scores GROUP BY mapId) AS MaxScores INNER JOIN Scores AS Scores ON Scores.mapId = MaxScores.mapId AND Scores.score = MaxScores.max_score INNER JOIN Beatmaps ON Scores.mapId = Beatmaps.mapId WHERE playerId = ? AND mode = ? ORDER BY difficulty DESC';
 
         db.all(query, [playerId, mode], (err, rows) => {
             handleDbResult(err, rows, query, callback);
         });
     },
     getFirstPlaceForMap: (mapId, callback) => {
-        let query = 'SELECT * FROM Scores WHERE mapId = ? AND score IS NOT NULL';
+        let query = 'SELECT * FROM Scores WHERE mapId = ? ORDER BY score DESC LIMIT 1';
 
         db.all(query, [mapId], (err, rows) => {
             handleDbResult(err, rows, query, callback);
         });
     },
     getFirstPlaceTop: (mode, count, callback) => {
-        let query = 'SELECT playerName, COUNT(*) AS count FROM Scores INNER JOIN Beatmaps ON Scores.mapId=Beatmaps.mapId WHERE score IS NOT NULL AND mode = ? GROUP BY playerId ORDER BY count DESC LIMIT ?';
+        let query = 'SELECT playerName, COUNT(*) AS count FROM (SELECT mapId, MAX(score) AS max_score FROM Scores GROUP BY mapId) AS MaxScores INNER JOIN Scores AS Scores ON Scores.mapId = MaxScores.mapId AND Scores.score = MaxScores.max_score INNER JOIN Beatmaps ON Scores.mapId = Beatmaps.mapId AND mode = ? GROUP BY playerId ORDER BY count DESC LIMIT ?';
 
         db.all(query, [mode, count], (err, rows) => {
             handleDbResult(err, rows, query, callback);
         });
+    },
+    getPlayersToNotify: (mapId, oldDate, newDate, callback) => {
+        let query = 'SELECT playerId FROM Scores WHERE mapId = ? AND date >= ? AND date < ?';
+
+        db.all(query, [mapId, oldDate, newDate], (err, rows) => {
+            if (rows) {
+                callback(undefined, rows.map(row => row.playerId));
+            } else handleDbResult(err, rows, query, callback);
+        })
     }
 };
 
