@@ -9,7 +9,8 @@ const winston = require('winston');
 const logger = winston.createLogger({
   format: winston.format.simple(),
   transports: [
-    new winston.transports.File({filename: "logs.log"})
+    new winston.transports.File({filename: "logs.log"}),
+    new winston.transports.Console({format: winston.format.simple()})
   ]
 });
 const mapRegex = /^https:\/\/osu.ppy.sh\/b\/[0-9]*$/;
@@ -32,6 +33,18 @@ let queue;
 let progressMessages = [];
 let validKeys = [];
 let curKeyIndex = 0;
+
+const http = require('http');
+const express = require('express');
+const app = express();
+app.get("/", (request, response) => {
+  console.log(Date.now() + " Ping Received");
+  response.sendStatus(200);
+});
+app.listen(process.env.PORT);
+setInterval(() => {
+  http.get(`http://${process.env.PROJECT_DOMAIN}.glitch.me/`);
+}, 280000);
 
 let bot = new Discord.Client();
 
@@ -67,14 +80,14 @@ bot.on("message", message => {
     let firstParam = options[1];
     let beatmapId = tryGetBeatmapFromMessage(message);
 
-    if (beatmapId || command === commandPrefix + "linkchannel" || settings.linkedChannels.indexOf(message.channel.id) !== -1 || message.channel.type === "dm") {
+    if (beatmapId || command === commandPrefix + "echo" || command === commandPrefix + "linkchannel" || settings.linkedChannels.indexOf(message.channel.id) !== -1 || message.channel.type === "dm") {
         if (beatmapId) {
             getCountryScores(beatmapId)
                 .then(data => {
                     handleCountryScores(data);
                 })
                 .catch (error => {
-                    message.channel.send("Error: " + error);
+                    //message.channel.send("Error: " + error);
                 });
         }
         switch (command) {
@@ -121,6 +134,10 @@ bot.on("message", message => {
                     }
                 });
                 break;
+            case commandPrefix + "echo":
+              if (!isMod(message, true) && !isOwner(message, true)) return;
+              message.channel.send(firstParam);
+              break;
             case commandPrefix + "link":
                 let remainder = options.slice(1, content.length).join(" ");
                 getUser(remainder)
@@ -231,7 +248,6 @@ bot.on("ready", () => {
 init()
     .then(() => bot.login(process.env.BOT_TOKEN))
     .catch(errors => {
-        console.warn(errors);
         logger.info(errors);
     });
 
@@ -328,18 +344,18 @@ function getNextTokenKey() {
     return curKeyIndex;
 }
 
-function isMod(message) {
+function isMod(message, dontNotify) {
     if (message.member.hasPermission('KICK_MEMBERS')) return true;
     else {
-        message.channel.send("Oi bruv you got a loicense for that command?");
+        if (!dontNotify) message.channel.send("Oi bruv you got a loicense for that command?");
         return false;
     }
 }
 
-function isOwner(message) {
+function isOwner(message, dontNotify) {
     let owner = parseInt(message.author.id) === 68834122860077056;
     if (!owner) {
-        message.channel.send("Oi bruv you got a loicense for that command?");
+        if (!dontNotify) message.channel.send("Oi bruv you got a loicense for that command?");
         return false;
     } else return true;
 }
@@ -608,10 +624,13 @@ function handleCountryScores(data, channel) {
                                 if (playerIds.length === 0 && channel) {
                                     channel.send("First place is " + message);
                                 } else {
-                                    notifyLinkedUsers(playerIds, data);
-                                    publishMessage(rows[0].playerName + " was sniped by " + message);
+                                    notifyLinkedUsers([rows[0].playerId], data);
+                                    if (firstPlace.id !== rows[0].playerId) {
+                                      publishMessage(rows[0].playerName + " was sniped by " + message);
+                                    }
                                 }
                             }
+                            resolve();
                         });
                     });
                 }
@@ -638,7 +657,7 @@ function notifyLinkedUsers(playerIds, data) {
 
     playerIds.forEach(playerId => {
         let localUser = getUserFromDb(playerId);
-        if (localUser) {
+        if (localUser && playerId !== firstPlace.id) {
             bot.fetchUser(localUser).then(user => {
                 user.send("You were sniped by " + firstPlace.u + "\n" + data.scoreData + "\n" + data.mapLink);
             }).catch(error => logger.info(error));
