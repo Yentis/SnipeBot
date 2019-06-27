@@ -170,7 +170,10 @@ bot.on("message", message => {
                 break;
             case commandPrefix + "scores":
             case commandPrefix + "count":
-                processScoresCommand(content, message.channel, command === commandPrefix + "scores");
+                processScoresCommand(content, message.channel, command !== commandPrefix + "count");
+                break;
+            case commandPrefix + "snipes":
+                processSnipesCommand(content, message.channel);
                 break;
             case commandPrefix + "delete":
               message.channel.send(firstParam + " has been DELETED");
@@ -298,6 +301,83 @@ function processScoresCommand(content, channel, showList) {
                 });
         }
     }
+}
+
+function processSnipesCommand(content, channel) {
+    let params = getParamsFromContent(content);
+
+    getUser(params.username).then(user => {
+        databaseManager.getMapsForPlayer(user.userId, params.mode, (err, rows) => {
+            if (err) {
+                channel.send("Error: " + err);
+            } else {
+                getListOfSnipedScores(rows, channel, user);
+            }
+        });
+    }).catch(error => channel.send("Error: " + error));
+}
+
+function getListOfSnipedScores(rows, channel, user) {
+    let snipedList = [];
+    let maps = {};
+    rows.forEach(row => {
+        if (maps[row.mapId]) {
+            maps[row.mapId].push(row);
+        } else {
+            maps[row.mapId] = [row];
+        }
+    });
+
+    Object.keys(maps).forEach(key => {
+        let map = maps[key];
+        let highestScore = wasFirstPlace(map, parseInt(user.userId));
+        if (highestScore) {
+            snipedList.push(highestScore);
+        }
+    });
+
+    let result = {
+        list: "",
+        amount: 0
+    };
+
+    generateHtmlForSnipes(snipedList.sort(sortByDifficulty), true, result);
+    if (result.amount === 0) channel.send(user.username + " is not currently sniped on any scores.");
+    else channel.send("Here are all the maps " + user.username + " has been sniped on (" + result.amount + " maps):", new Discord.Attachment(Buffer.from(result.list), "Snipes " + user.username + ".html"));
+}
+
+function wasFirstPlace(scores, playerId) {
+    let highestScore = scores[0];
+    let playerScore;
+    let wasFirstPlace = true;
+
+    scores.forEach(score => {
+        if (score.score > highestScore.score || (score.score === highestScore.score && score.date < highestScore.date)) {
+            highestScore = score;
+        }
+
+        if (playerId === score.playerId) {
+            playerScore = score;
+        }
+    });
+
+    if (highestScore.playerId === playerId) return false;
+
+    scores.forEach(score => {
+        if (score.date < playerScore.date && score.score >= playerScore.score) wasFirstPlace = false;
+    });
+
+    return wasFirstPlace ? highestScore : wasFirstPlace;
+}
+
+function sortByDifficulty(a, b) {
+    if (parseFloat(a.difficulty) > parseFloat(b.difficulty)){
+        return -1;
+    }
+    if (parseFloat(a.difficulty) < parseFloat(b.difficulty)){
+        return 1;
+    }
+    return 0;
 }
 
 function tryGetBeatmapFromMessage(message) {
@@ -823,7 +903,7 @@ function generateHtmlForMaps(maps, createList, result) {
         if (createList) {
             let htmlString = "";
             if (beatmap) {
-                htmlString = "<a href='https://osu.ppy.sh/b/" + beatmap.mapId + "'>" + createTitleFromBeatmap(beatmap) + "</a><br>";
+                htmlString = "<a href='https://osu.ppy.sh/b/" + beatmap.mapId + "'>" + createTitleFromBeatmap(beatmap, true) + "</a><br>";
             }
             result.list += htmlString;
         }
@@ -833,6 +913,25 @@ function generateHtmlForMaps(maps, createList, result) {
     return result;
 }
 
-function createTitleFromBeatmap(beatmap) {
-    return beatmap.artist + " - " + beatmap.title + " [" + beatmap.version + "] | Stars: " + beatmap.difficulty;
+function generateHtmlForSnipes(maps, createList, result) {
+    if (createList) result.list = "<table><tr><th>Sniper</th><th>Score</th><th>Map</th><th>Stars</th></tr>";
+    maps.forEach(beatmap => {
+        if (createList) {
+            let htmlString = "";
+            if (beatmap) {
+                htmlString = "<tr><td>" + beatmap.playerName + "</td><td>" + beatmap.score.toLocaleString() + "</td><td><a href='https://osu.ppy.sh/b/" + beatmap.mapId + "'>" + createTitleFromBeatmap(beatmap, false) + "</a></td><td>" + beatmap.difficulty + "</td></tr>";
+            }
+            result.list += htmlString;
+        }
+        result.amount++;
+    });
+    if (createList) result.list += "</table>";
+
+    return result;
+}
+
+function createTitleFromBeatmap(beatmap, stars) {
+    let title = beatmap.artist + " - " + beatmap.title + " [" + beatmap.version + "]";
+    if (stars) title += " | Stars: " + beatmap.difficulty;
+    return title;
 }

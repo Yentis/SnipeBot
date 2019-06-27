@@ -135,6 +135,13 @@ module.exports = {
                 callback(undefined, rows.map(row => row.playerId));
             } else handleDbResult(err, rows, query, callback);
         })
+    },
+    getMapsForPlayer: (playerId, mode, callback) => {
+        let query = 'SELECT Scores.*, Beatmaps.* FROM Scores JOIN Scores AS scoresForPlayer ON Scores.mapId = scoresForPlayer.mapId AND scoresForPlayer.playerId = ? INNER JOIN Beatmaps ON Scores.mapId = Beatmaps.mapId AND mode = ?';
+
+        db.all(query, [playerId, mode], (err, rows) => {
+            handleDbResult(err, rows, query, callback);
+        });
     }
 };
 
