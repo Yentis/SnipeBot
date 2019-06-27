@@ -11,13 +11,14 @@
   },
   "dependencies": {
     "requestify": "^0.2.5",
-    "discord.js": "^11.4.2",
+    "discord.js": "^11.5.1",
     "promise-queue": "^2.2.5",
     "winston": "^3.2.1",
     "events": "^3.0.0",
     "sqlite3": "^4.0.9",
     "isomorphic-fetch": "^2.2.1",
-    "dropbox": "^4.0.27"
+    "dropbox": "^4.0.27",
+    "express": "^4.16.4"
   },
   "engines": {
     "node": "8.6.0"
