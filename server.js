@@ -38,7 +38,6 @@ const http = require('http');
 const express = require('express');
 const app = express();
 app.get("/", (request, response) => {
-  console.log(Date.now() + " Ping Received");
   response.sendStatus(200);
 });
 app.listen(process.env.PORT);
@@ -119,7 +118,7 @@ bot.on("message", message => {
                 }
                 break;
             case commandPrefix + "rebuild":
-                if (!isOwner(message)) return;
+                if (!isOwner(message) && !(parseInt(message.author.id) === 219905108316520448)) return;
                 settings.curIndex = 0;
                 settings.failedIds = [];
                 databaseManager.getMapIds((err, rows) => {
@@ -167,7 +166,7 @@ bot.on("message", message => {
                 } else message.channel.send("No user found.");
                 break;
             case commandPrefix + "rebuildfailed":
-                if (!isOwner(message)) return;
+                if (!isOwner(message) && !(parseInt(message.author.id) === 219905108316520448)) return;
                 createDatabase(settings.failedIds.slice(0), 0, true)
                     .catch(error => message.channel.send("Error: " + error));
                 break;
@@ -205,6 +204,7 @@ bot.on("message", message => {
                     "&progress: If the score database is being rebuilt, this will show the current progress.\n\n" +
                     "&scores: Get all #1 scores of a given user, can specify mode by typing 'mania', 'ctb' or 'taiko' after &snipe. Default is standard.\n\n" +
                     "&count: Get the amount of #1 scores of a given user, can specify mode.\n\n" +
+                    "&snipes: Get all scores a given user has been sniped on, can specify mode.\n\n" +
                     "&top: Example: &top5 Get the top X users by amount of #1 scores, can specify mode.\n\n" +
                     "Good to know: The bot will pick up on <r from PP-Generator bot and !rs from BoatBot and check those for new first place scores.");
                 break;
@@ -214,20 +214,9 @@ bot.on("message", message => {
             let amount = parseInt(command.replace(commandPrefix + "top", ""));
             if (Number.isInteger(amount)) {
                 let params = getParamsFromContent(content);
-                let promises = rankings(Math.min(100, Math.max(1, amount)), params.mode)
-                    .map(leader => getUser(leader[0]).then(user =>
-                        [user,leader[1]]
-                    ));
-                Promise.all(promises)
-                    .then(results => {
-                        let output = '';
-                        let rank = 0;
-                        for ([user, count] of results) {
-                            rank++;
-                            output += rank + '. ' + user.username + ' - ' + count + '\n';
-                        }
-                        message.channel.send(output);
-                    });
+                rankings(Math.min(100, Math.max(1, amount)), params.mode).then(results => {
+                    message.channel.send(results);
+                }).catch(error => console.error(error));
             } else message.channel.send("Invalid top count");
         }
     }
@@ -723,7 +712,7 @@ function updateScoresForMap(beatmapId, data) {
     return new Promise(resolve => {
         databaseManager.deleteScoresForMap(beatmapId, err => {
             if (err) logger.info(err);
-            let count = Math.min(5, data.scores.length);
+            let count = Math.min(10, data.scores.length);
             databaseManager.bulkAddScoreRows(beatmapId, data.scores.slice(0, count), err => {
                 if (err) logger.info(err);
                 resolve();
