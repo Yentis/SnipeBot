@@ -115,14 +115,14 @@ module.exports = {
         });
     },
     getFirstPlaceForMap: (mapId, callback) => {
-        let query = 'SELECT * FROM Scores WHERE mapId = ? ORDER BY score DESC LIMIT 1';
+        let query = 'SELECT * FROM Scores WHERE mapId = ? ORDER BY score DESC, date ASC LIMIT 1';
 
         db.all(query, [mapId], (err, rows) => {
             handleDbResult(err, rows, query, callback);
         });
     },
     getFirstPlaceTop: (mode, count, callback) => {
-        let query = 'SELECT playerName, COUNT(*) AS count FROM (SELECT mapId, MAX(score) AS max_score FROM Scores GROUP BY mapId) AS MaxScores INNER JOIN Scores AS Scores ON Scores.mapId = MaxScores.mapId AND Scores.score = MaxScores.max_score INNER JOIN Beatmaps ON Scores.mapId = Beatmaps.mapId AND mode = ? GROUP BY playerId ORDER BY count DESC LIMIT ?';
+        let query = 'SELECT playerName, COUNT(*) AS count FROM (SELECT mapId, date AS someDate,MAX(score) AS max_score FROM Scores GROUP BY mapId ORDER BY max_score DESC, date ASC) AS MaxScores INNER JOIN Scores AS Scores ON Scores.mapId = MaxScores.mapId AND Scores.score = MaxScores.max_score AND Scores.date = MaxScores.someDate INNER JOIN Beatmaps ON Scores.mapId = Beatmaps.mapId AND mode = ? GROUP BY playerId ORDER BY count DESC LIMIT ?';
 
         db.all(query, [mode, count], (err, rows) => {
             handleDbResult(err, rows, query, callback);

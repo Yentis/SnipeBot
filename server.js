@@ -41,9 +41,6 @@ app.get("/", (request, response) => {
   response.sendStatus(200);
 });
 app.listen(process.env.PORT);
-setInterval(() => {
-  http.get(`http://${process.env.PROJECT_DOMAIN}.glitch.me/`);
-}, 280000);
 
 let bot = new Discord.Client();
 
@@ -166,7 +163,7 @@ bot.on("message", message => {
                 } else message.channel.send("No user found.");
                 break;
             case commandPrefix + "rebuildfailed":
-                if (!isOwner(message) && !(parseInt(message.author.id) === 219905108316520448)) return;
+                if (!(parseInt(message.author.id) === 219905108316520448) && !isOwner(message)) return;
                 createDatabase(settings.failedIds.slice(0), 0, true)
                     .catch(error => message.channel.send("Error: " + error));
                 break;
@@ -907,16 +904,18 @@ function countThroughMapIds(userId, createList, mode) {
 }
 
 function generateHtmlForMaps(maps, createList, result) {
+    if (createList) result.list = "<table><tr><th>Score</th><th>Map</th><th>Stars</th></tr>";
     maps.forEach(beatmap => {
         if (createList) {
             let htmlString = "";
             if (beatmap) {
-                htmlString = "<a href='https://osu.ppy.sh/b/" + beatmap.mapId + "'>" + createTitleFromBeatmap(beatmap, true) + "</a><br>";
+                htmlString = "<tr><td>" + beatmap.score.toLocaleString() + "</td><td><a href='https://osu.ppy.sh/b/" + beatmap.mapId + "'>" + createTitleFromBeatmap(beatmap, false) + "</a></td><td>" + beatmap.difficulty + "</td></tr>";
             }
             result.list += htmlString;
         }
         result.amount++;
     });
+    if (createList) result.list += "</table>";
 
     return result;
 }
