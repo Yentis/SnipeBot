@@ -12,7 +12,7 @@ module.exports = {
             dbx.filesDownload({path: "/" + file})
                 .then(response => {
                     if (response.fileBinary) {
-                        let fileBuffer = new Buffer(response.fileBinary, 'binary');
+                        let fileBuffer = Buffer.from(response.fileBinary, 'binary');
                         resolve(JSON.parse(fileBuffer.toString('utf8')));
                     } else {
                         reject("File not found: " + file);

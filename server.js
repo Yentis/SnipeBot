@@ -1,3 +1,5 @@
+require('dotenv').config();
+
 let requestify = require("requestify");
 let Discord = require("discord.js");
 let Queue = require("promise-queue");
