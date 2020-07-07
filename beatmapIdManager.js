@@ -2,13 +2,15 @@ module.exports = {
     updateBeatmapIds: (key) => {
         return new Promise((resolve, reject) => {
             apiKey = key;
-            getLatestDate()
-            .then(date => {
-                loopRequests(date);
-                resolveEmitter.on("done", () => {
-                    resolve();
+            databaseManager.connect(() => {
+                getLatestDate()
+                .then(date => {
+                    loopRequests(date);
+                    resolveEmitter.on("done", () => {
+                        resolve();
+                    });
+                    resolveEmitter.on("error", error => reject(error));
                 });
-                resolveEmitter.on("error", error => reject(error));
             });
         });
     }
@@ -34,10 +36,10 @@ const resolveEmitter = new ResolveEmitter();
 
 function getLatestDate() {
     return new Promise(resolve => {
-        databaseManager.getNewestMap((err, rows) => {
+        databaseManager.getNewestMap((err, date) => {
             if (err) {
                 logger.error(err);
-            } else if (rows.length > 0) resolve(rows[0].approvedDate);
+            } else if (date) resolve(date);
             else resolve(toMysqlFormat(new Date("2007")));
         });
     });

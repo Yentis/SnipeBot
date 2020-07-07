@@ -1,10 +1,6 @@
-// init sqlite db
-let fs = require('fs');
-let dbFile = './.data/sqlite.db';
-let exists = fs.existsSync(dbFile);
-let sqlite3 = require('sqlite3').verbose();
-let db = new sqlite3.Database(dbFile);
-
+const MongoClient = require('mongodb').MongoClient;
+const uri = `mongodb+srv://${process.env.MONGODB_USER}:${process.env.MONGODB_PASS}@cluster0.himju.gcp.mongodb.net/osusnipebot?retryWrites=true&w=majority`;
+const client = new MongoClient(uri, { useNewUrlParser: true, useUnifiedTopology: true });
 const winston = require('winston');
 const logger = winston.createLogger({
     format: winston.format.simple(),
@@ -13,143 +9,311 @@ const logger = winston.createLogger({
         new winston.transports.Console({format: winston.format.simple()})
     ]
 });
+const BEATMAPS = 'Beatmaps';
 
-db.serialize(() => {
-    if (!exists) {
-        db.run('CREATE TABLE Scores (mapId NUMERIC, playerId NUMERIC, playerName TEXT, date DATE, score NUMERIC, PRIMARY KEY (mapId, playerId))');
-        db.run('CREATE TABLE Beatmaps (mapId NUMERIC PRIMARY KEY, artist TEXT, difficulty NUMERIC, title TEXT, version TEXT, mode TEXT, approvedDate DATE)');
-    }
-});
+function connectToMongoDB(callback) {
+    client.connect(async err => {
+        if (err) {
+            logger.error('Failed to connect to MongoDB', err);
+            callback();
+            return;
+        }
+    
+        const db = client.db();
+    
+        try {
+            let collections = await getCollections(db);
+            for (const collection of collections) {
+                if (collection.name === BEATMAPS) {
+                    callback();
+                    return;
+                }
+            }
+        } catch (error) {
+            logger.error('Failed to get collections', error);
+            callback();
+            return;
+        }
+    
+        try {
+            await createCollection(db, BEATMAPS, { $jsonSchema: {
+                bsonType: 'object',
+                required: ['artist', 'difficulty', 'title', 'version', 'mode', 'approvedDate'],
+                properties: {
+                    artist: {
+                        bsonType: 'string',
+                        description: 'Song artist; required.'
+                    },
+                    difficulty: {
+                        bsonType: 'string',
+                        description: 'Map difficulty; required.'
+                    },
+                    title: {
+                        bsonType: 'string',
+                        description: 'Song title; required.'
+                    },
+                    version: {
+                        bsonType: 'string',
+                        description: 'Map difficulty name; required.'
+                    },
+                    mode: {
+                        bsonType: 'string',
+                        description: 'Map gamemode; required.'
+                    },
+                    approvedDate: {
+                        bsonType: 'date',
+                        description: 'Map approved date; required.'
+                    },
+                    scores: {
+                        bsonType: 'array',
+                        description: 'Scores for this map.'
+                    }
+                }
+            }});
+        } catch (error) {
+            logger.error('Failed to create collection', error);
+            callback();
+            return;
+        }
+
+        callback();
+    });
+}
+
+function getCollections(db) {
+    return new Promise((resolve, reject) => {
+        db.listCollections().toArray((err, items) => {
+            if (err) reject(err);
+            else resolve(items);
+        });
+    });
+}
+
+function createCollection(db, collection, validator) {
+    return new Promise((resolve, reject) => {
+        db.createCollection(collection, { validator }, (err, result) => {
+            if (err) reject(err);
+            else resolve(result);
+        });
+    });
+}
+
+function toISODate(date) {
+    return date.getUTCFullYear() + '-' +
+    ('00' + (date.getUTCMonth()+1)).slice(-2) + '-' +
+    ('00' + date.getUTCDate()).slice(-2) + ' ' + 
+    ('00' + date.getUTCHours()).slice(-2) + ':' + 
+    ('00' + date.getUTCMinutes()).slice(-2) + ':' + 
+    ('00' + date.getUTCSeconds()).slice(-2);
+}
 
 module.exports = {
-    bulkAddScoreRows: (mapId, maps, callback) => {
-        let errors = [];
-
-        db.serialize(() => {
-            db.run("BEGIN TRANSACTION");
-            maps.forEach(score => {
-                db.run("INSERT INTO Scores VALUES (?, ?, ?, ?, ?)", [mapId, score.id, score.u, score.d, score.s ? score.s : 0], err => {
-                    if (err && err.message.indexOf("UNIQUE constraint failed") === -1) {
-                        errors.push(err.message);
-                    }
-                });
-            });
-            db.run("END", () => {
-                if (errors.length > 0) {
-                    logger.error(errors);
-                } else {
-                    callback();
-                }
-            });
+    connect: (callback) => {
+        connectToMongoDB(callback);
+    },
+    getNewestMap: (callback) => {
+        client.db().collection(BEATMAPS).find().project({ _id: 0, approvedDate: 1 }).sort({ approvedDate: -1 }).limit(1).toArray().then((results) => {
+            if (results.length === 1) {
+                callback(undefined, toISODate(results[0].approvedDate));
+            } else callback();
+        }).catch(err => {
+            logger.error(`Failed to find newest map`, err);
+            callback();
         });
     },
     bulkAddBeatmapRows: (maps, callback) => {
-        let errors = [];
+        const beatmaps = [];
+        for (const map of maps) {
+            if (map.approved === '3') continue;
 
-        db.serialize(() => {
-            db.run("BEGIN TRANSACTION");
-            maps.forEach(map => {
-                if (map.approved !== '3') {
-                    db.run("INSERT INTO Beatmaps VALUES (?, ?, ?, ?, ?, ?, ?)", [map.beatmap_id, map.artist, parseFloat(map.difficultyrating).toFixed(2), map.title, map.version, map.mode, map.approved_date + "Z"], err => {
-                        if (err && err.message.indexOf("UNIQUE constraint failed") === -1) {
-                            errors.push(err.message);
+            beatmaps.push({
+                updateOne: {
+                    filter: {
+                        _id: map.beatmap_id
+                    },
+                    update: {
+                        $set: {
+                            artist: map.artist,
+                            difficulty: parseFloat(map.difficultyrating).toFixed(2),
+                            title: map.title,
+                            version: map.version,
+                            mode: map.mode,
+                            approvedDate: new Date(map.approved_date + 'Z')
                         }
-                    });
+                    },
+                    upsert: true
                 }
             });
-            db.run("END", () => {
-                if (errors.length > 0) {
-                    logger.error(errors);
-                } else {
-                    callback();
-                }
-            });
-        });
-    },
-    deleteScoresForMap: (mapId, callback) => {
-        db.serialize(() => {
-            db.run('DELETE FROM Scores WHERE mapId = ?', [mapId], err => {
-                if (err) {
-                    callback(err.message);
-                } else callback(undefined, "Removed scores for: " + mapId);
-            });
+        }
+
+        if (beatmaps.length === 0) {
+            callback();
+            return;
+        }
+
+        client.db().collection(BEATMAPS).bulkWrite(beatmaps, err => {
+            if (err) logger.error('Failed to insert beatmaps', err);
+            callback();
         });
     },
     getMapCount: (callback) => {
-        let query = 'SELECT COUNT(*) AS count FROM Beatmaps';
-
-        db.all(query, (err, rows) => {
-            if (rows) {
-                callback(undefined, rows[0].count);
-            } else handleDbResult(err, rows, query, callback);
-        });
-    },
-    getMapIds: (callback) => {
-        let query = 'SELECT mapId FROM Beatmaps';
-
-        db.all(query, (err, rows) => {
-            if (rows) {
-                callback(undefined, rows.map(row => row.mapId));
-            } else handleDbResult(err, rows, query, callback);
-        });
-    },
-    getNewestMap: (callback) => {
-        let query = 'SELECT * FROM Beatmaps ORDER BY approvedDate DESC LIMIT 1';
-
-        db.all(query, (err, rows) => {
-            handleDbResult(err, rows, query, callback);
-        });
-    },
-    getMapsWithNoScores: (mode, callback) => {
-        let query = 'SELECT * FROM Beatmaps WHERE mode = ? AND mapId NOT IN (SELECT mapId FROM Scores) ORDER BY difficulty DESC';
-
-        db.all(query, [mode], (err, rows) => {
-            handleDbResult(err, rows, query, callback);
-        });
-    },
-    getFirstPlacesForPlayer: (playerId, mode, callback) => {
-        let query = 'SELECT * FROM (SELECT mapId, MAX(score) AS max_score FROM Scores GROUP BY mapId) AS MaxScores INNER JOIN Scores AS Scores ON Scores.mapId = MaxScores.mapId AND Scores.score = MaxScores.max_score INNER JOIN Beatmaps ON Scores.mapId = Beatmaps.mapId WHERE playerId = ? AND mode = ? ORDER BY difficulty DESC';
-
-        db.all(query, [playerId, mode], (err, rows) => {
-            handleDbResult(err, rows, query, callback);
-        });
+        client.db().collection(BEATMAPS).countDocuments().then(result => {
+            callback(undefined, result);
+        }).catch(err => callback(err));
     },
     getFirstPlaceForMap: (mapId, callback) => {
-        let query = 'SELECT * FROM Scores WHERE mapId = ? ORDER BY score DESC, date ASC LIMIT 1';
-
-        db.all(query, [mapId], (err, rows) => {
-            handleDbResult(err, rows, query, callback);
-        });
+        client.db().collection(BEATMAPS).find({ _id: mapId.toString() }).project({ _id: 0, firstPlace: 1 }).toArray().then(results => {
+            if (results.length !== 0 && results[0].firstPlace) {
+                callback(undefined, results[0].firstPlace);
+            } else callback();
+        }).catch(err => callback(err));
     },
-    getFirstPlaceTop: (mode, count, callback) => {
-        let query = 'SELECT playerName, COUNT(*) AS count FROM (SELECT mapId, date AS someDate,MAX(score) AS max_score FROM Scores GROUP BY mapId ORDER BY max_score DESC, date ASC) AS MaxScores INNER JOIN Scores AS Scores ON Scores.mapId = MaxScores.mapId AND Scores.score = MaxScores.max_score AND Scores.date = MaxScores.someDate INNER JOIN Beatmaps ON Scores.mapId = Beatmaps.mapId AND mode = ? GROUP BY playerId ORDER BY count DESC LIMIT ?';
+    bulkAddScoreRows: (mapId, scores, callback) => {
+        const scoreList = [];
+        let firstPlace;
 
-        db.all(query, [mode, count], (err, rows) => {
-            handleDbResult(err, rows, query, callback);
+        for (const score of scores) {
+            const scoreItem = {
+                playerId: score.id,
+                playerName: score.u,
+                date: new Date(score.d),
+                score: score.s
+            };
+            scoreList.push(scoreItem);
+
+            if (!firstPlace) {
+                firstPlace = scoreItem;
+                continue;
+            }
+
+            if (scoreItem.score < firstPlace.score) continue;
+            if (scoreItem.score === firstPlace.score && scoreItem.date > firstPlace.date) continue;
+            
+            firstPlace = scoreItem;
+        }
+
+        client.db().collection(BEATMAPS).updateOne({ _id: mapId.toString() }, { $set: { scores: scoreList, firstPlace } }, err => {
+            if (err) logger.error('Failed to insert scores', err);
+            callback();
         });
     },
     getPlayersToNotify: (mapId, oldDate, newDate, callback) => {
-        let query = 'SELECT playerId FROM Scores WHERE mapId = ? AND date >= ? AND date < ?';
+        client.db().collection(BEATMAPS).find({ _id: mapId.toString() }).project({ _id: 0, scores: 1 }).toArray().then(results => {
+            if (results.length !== 0 && results[0].scores) {
+                const scores = results[0].scores;
+                if (scores.length === 0) {
+                    callback(undefined, []);
+                    return;
+                }
+                const playerIds = [];
 
-        db.all(query, [mapId, oldDate, newDate], (err, rows) => {
-            if (rows) {
-                callback(undefined, rows.map(row => row.playerId));
-            } else handleDbResult(err, rows, query, callback);
-        })
+                for (const score of scores) {
+                    if (score.date >= oldDate && score.date < newDate) {
+                        playerIds.push(score.id);
+                    }
+                }
+
+                callback(undefined, playerIds);
+            } else callback(undefined, []);
+        }).catch(err => callback(err));
+    },
+    getMapsWithNoScores: (mode, callback) => {
+        client.db().collection(BEATMAPS).find({ mode: mode.toString(), scores: { $exists: false } }).sort({ difficulty: -1 }).project({ scores: 0 }).toArray().then(results => {
+            callback(undefined, results);
+        }).catch(err => callback(err));
+    },
+    getFirstPlacesForPlayer: (playerId, mode, callback) => {
+        client.db().collection(BEATMAPS).find({ 'firstPlace.playerId': playerId, mode: mode.toString() }).sort({ difficulty: -1 }).project({ scores: 0 }).toArray().then(results => {
+            if (results.length !== 0) {
+                const scores = [];
+                
+                for (const result of results) {
+                    const score = result.firstPlace.score;
+
+                    scores.push({...result, score});
+                }
+
+                callback(undefined, scores);
+            } else callback(undefined, []);
+        }).catch(err => callback(err));
+    },
+    getFirstPlaceTop: (mode, count, callback) => {
+        const start = new Date();
+        const ranking = {};
+
+        const cursor = client.db().collection(BEATMAPS).find({ mode: mode.toString(), firstPlace: { $exists: true } }).project({ _id: 0, 'firstPlace.playerName': 1 });
+        cursor.on('data', data => {
+            if (ranking[data.firstPlace.playerName]) {
+                ranking[data.firstPlace.playerName]++;
+            } else {
+                ranking[data.firstPlace.playerName] = 1;
+            }
+        });
+        cursor.on('end', () => {
+            const keys = Object.keys(ranking);
+            keys.sort((a,b) => {
+                return ranking[b] - ranking[a];
+            });
+            const topList = keys.map(key => {
+                return {
+                    playerName: key,
+                    count: ranking[key]
+                };
+            });
+
+            const end = new Date();
+            console.log(end - start);
+            callback(undefined, topList.slice(0, count));
+        });
     },
     getMapsForPlayer: (playerId, mode, callback) => {
-        let query = 'SELECT Scores.*, Beatmaps.* FROM Scores JOIN Scores AS scoresForPlayer ON Scores.mapId = scoresForPlayer.mapId AND scoresForPlayer.playerId = ? INNER JOIN Beatmaps ON Scores.mapId = Beatmaps.mapId AND mode = ?';
+        const maps = [];
 
-        db.all(query, [playerId, mode], (err, rows) => {
-            handleDbResult(err, rows, query, callback);
+        const cursor = client.db().collection(BEATMAPS).find({ mode: mode.toString() }).project({ firstplace: 0 });
+        cursor.on('data', data => {
+            const scores = data.scores;
+            if (!scores || scores.length === 0) {
+                return;
+            }
+
+            for (const score of scores) {
+                if (score.playerId === parseInt(playerId)) {
+                    maps.push(data);
+
+                    return;
+                }
+            }
+        });
+        cursor.on('end', () => {
+            callback(undefined, maps);
+        });
+    },
+    getMapIds: (callback) => {
+        const mapIds = [];
+
+        const cursor = client.db().collection(BEATMAPS).find().project({ _id: 1 });
+        cursor.on('data', data => {
+            mapIds.push(data._id);
+        });
+        cursor.on('end', () => {
+            callback(undefined, mapIds);
         });
     }
 };
 
-function handleDbResult(err, rows, query, callback) {
-    if (err) {
-        callback(err.message);
-    } else if (rows) {
-        callback(undefined, rows);
-    } else callback("Unknown issue occurred for query: " + query);
+function exitHandler(options) {
+    if (options.cleanup) {
+        console.log('Closing connection');
+        client.close();
+    }
+    if (options.exit) process.exit();
 }
+
+process.on('exit', exitHandler.bind(null,{ cleanup:true }));
+
+process.on('SIGINT', exitHandler.bind(null, { exit: true }));
+
+process.on('SIGUSR1', exitHandler.bind(null, { exit: true }));
+process.on('SIGUSR2', exitHandler.bind(null, { exit: true }));
+
+process.on('uncaughtException', exitHandler.bind(null, { exit: true }));

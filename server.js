@@ -321,22 +321,13 @@ function processSnipesCommand(content, channel) {
     }).catch(error => channel.send("Error: " + error));
 }
 
-function getListOfSnipedScores(rows, channel, user) {
+function getListOfSnipedScores(maps, channel, user) {
     let snipedList = [];
-    let maps = {};
-    rows.forEach(row => {
-        if (maps[row.mapId]) {
-            maps[row.mapId].push(row);
-        } else {
-            maps[row.mapId] = [row];
-        }
-    });
 
-    Object.keys(maps).forEach(key => {
-        let map = maps[key];
-        let highestScore = wasFirstPlace(map, parseInt(user.userId));
+    maps.forEach(map => {
+        let highestScore = wasFirstPlace(map.scores, parseInt(user.userId));
         if (highestScore) {
-            snipedList.push(highestScore);
+            snipedList.push(map);
         }
     });
 
@@ -371,7 +362,7 @@ function wasFirstPlace(scores, playerId) {
         if (score.date < playerScore.date && score.score >= playerScore.score) wasFirstPlace = false;
     });
 
-    return wasFirstPlace ? highestScore : wasFirstPlace;
+    return wasFirstPlace;
 }
 
 function sortByDifficulty(a, b) {
@@ -585,11 +576,11 @@ function doRequest(data, stop) {
         if (data.rebuildFailed) {
             resolve(data.fullArray.length);
         } else {
-            databaseManager.getMapIds((err, rows) => {
+            databaseManager.getMapCount((err, count) => {
                 if (err) {
                     logger.info(err);
                     resolve(0);
-                } else resolve(rows.length);
+                } else resolve(count);
             });
         }
     }).then(realLength => {
@@ -671,19 +662,18 @@ function handleCountryScores(data, channel) {
         }
 
         let firstPlace = data.scores[0];
-        databaseManager.getFirstPlaceForMap(beatmapId, (err, rows) => {
+        databaseManager.getFirstPlaceForMap(beatmapId, (err, score) => {
             if (err) {
                 logger.info(err);
                 updateScoresForMap(beatmapId, data).then(() => resolve());
             } else {
-                let isNewScore = rows.length === 0;
                 let message = firstPlace.u + "\n" + data.scoreData + "\n" + data.mapLink;
 
-                if (isNewScore) {
+                if (!score) {
                     publishMessage("New first place is " + message);
                     updateScoresForMap(beatmapId, data).then(() => resolve());
                 } else {
-                    let oldDate = rows[0].date;
+                    let oldDate = score.date;
                     updateScoresForMap(beatmapId, data).then(() => {
                         databaseManager.getPlayersToNotify(beatmapId, oldDate, firstPlace.d, (err, playerIds) => {
                             if (err) {
@@ -692,9 +682,9 @@ function handleCountryScores(data, channel) {
                                 if (playerIds.length === 0 && channel) {
                                     channel.send("First place is " + message);
                                 } else {
-                                    notifyLinkedUsers([rows[0].playerId], data);
-                                    if (firstPlace.id !== rows[0].playerId) {
-                                      publishMessage(rows[0].playerName + " was sniped by " + message);
+                                    notifyLinkedUsers([score.playerId], data);
+                                    if (firstPlace.id !== score.playerId) {
+                                      publishMessage(score.playerName + " was sniped by " + message);
                                     }
                                 }
                             }
@@ -709,13 +699,10 @@ function handleCountryScores(data, channel) {
 
 function updateScoresForMap(beatmapId, data) {
     return new Promise(resolve => {
-        databaseManager.deleteScoresForMap(beatmapId, err => {
-            if (err) logger.info(err);
-            let count = Math.min(10, data.scores.length);
-            databaseManager.bulkAddScoreRows(beatmapId, data.scores.slice(0, count), err => {
-                if (err) logger.info(err);
-                resolve();
-            });
+        let count = Math.min(10, data.scores.length);
+        databaseManager.bulkAddScoreRows(beatmapId, data.scores.slice(0, count), err => {
+            if (err) logger.error(`Failed to update scores for ${beatmapId}: ${JSON.stringify(err)}`);
+            resolve();
         });
     });
 }
@@ -841,6 +828,7 @@ function resolveResponse(response, reject, resolve) {
                 d: score.created_at,
                 s: score.score
             };
+            
             parsedScores.scores.push(scoreInfo);
         }
         resolve(parsedScores);
@@ -907,18 +895,27 @@ function countThroughMapIds(userId, createList, mode) {
 
 function generateHtmlForMaps(maps, createList, result) {
     if (createList) result.list = "<table><tr><th>Score</th><th>Map</th><th>Stars</th></tr>";
-    maps.forEach(beatmap => {
+
+    for (let i = 0; i < Math.min(maps.length, 60000); i++) {
+        const beatmap = maps[i];
         if (createList) {
             let htmlString = "";
             if (beatmap) {
-                htmlString = "<tr><td>" + beatmap.score.toLocaleString() + "</td><td><a href='https://osu.ppy.sh/b/" + beatmap.mapId + "'>" + createTitleFromBeatmap(beatmap, false) + "</a></td><td>" + beatmap.difficulty + "</td></tr>";
+                htmlString = "<tr>";
+                if (beatmap.score) {
+                    htmlString = htmlString + "<td>" + beatmap.score.toLocaleString() + "</td>";
+                } else {
+                    htmlString = htmlString + "<td>N/A</td>";
+                }
+                
+                htmlString = htmlString + "<td><a href='https://osu.ppy.sh/b/" + beatmap._id + "'>" + createTitleFromBeatmap(beatmap, false) + "</a></td><td>" + beatmap.difficulty + "</td></tr>";
             }
             result.list += htmlString;
         }
         result.amount++;
-    });
+    }
+    
     if (createList) result.list += "</table>";
-
     return result;
 }
 
@@ -928,7 +925,7 @@ function generateHtmlForSnipes(maps, createList, result) {
         if (createList) {
             let htmlString = "";
             if (beatmap) {
-                htmlString = "<tr><td>" + beatmap.playerName + "</td><td>" + beatmap.score.toLocaleString() + "</td><td><a href='https://osu.ppy.sh/b/" + beatmap.mapId + "'>" + createTitleFromBeatmap(beatmap, false) + "</a></td><td>" + beatmap.difficulty + "</td></tr>";
+                htmlString = "<tr><td>" + beatmap.firstPlace.playerName + "</td><td>" + beatmap.firstPlace.score.toLocaleString() + "</td><td><a href='https://osu.ppy.sh/b/" + beatmap._id + "'>" + createTitleFromBeatmap(beatmap, false) + "</a></td><td>" + beatmap.difficulty + "</td></tr>";
             }
             result.list += htmlString;
         }
