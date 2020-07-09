@@ -269,14 +269,9 @@ module.exports = {
     getMapsForPlayer: (playerId, mode, callback) => {
         const maps = [];
 
-        const cursor = client.db().collection(BEATMAPS).find({ mode: mode.toString() }).project({ firstplace: 0 });
+        const cursor = client.db().collection(BEATMAPS).find({ mode: mode.toString(), scores: { $exists: true } }).project({ firstplace: 0 });
         cursor.on('data', data => {
-            const scores = data.scores;
-            if (!scores || scores.length === 0) {
-                return;
-            }
-
-            for (const score of scores) {
+            for (const score of data.scores) {
                 if (score.playerId === parseInt(playerId)) {
                     maps.push(data);
 

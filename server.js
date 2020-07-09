@@ -134,7 +134,7 @@ bot.on("message", message => {
                 break;
             case commandPrefix + "echo":
               if (!isMod(message, true) && !isOwner(message, true)) return;
-              message.channel.send(firstParam);
+              message.channel.send(content.substring(commandPrefix.length + 4, content.length));
               break;
             case commandPrefix + "link":
                 let remainder = options.slice(1, content.length).join(" ");
