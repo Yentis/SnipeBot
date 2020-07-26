@@ -675,7 +675,7 @@ function handleCountryScores(data, channel) {
                 } else {
                     let oldDate = score.date;
                     updateScoresForMap(beatmapId, data).then(() => {
-                        databaseManager.getPlayersToNotify(beatmapId, oldDate, firstPlace.d, (err, playerIds) => {
+                        databaseManager.getPlayersToNotify(beatmapId, oldDate, new Date(firstPlace.d), (err, playerIds) => {
                             if (err) {
                                 logger.info(err);
                             } else {
@@ -714,7 +714,7 @@ function notifyLinkedUsers(playerIds, data) {
         let localUser = getUserFromDb(playerId);
         if (localUser && playerId !== firstPlace.id) {
             bot.fetchUser(localUser).then(user => {
-                user.send("You were sniped by " + firstPlace.u + "\n" + data.scoreData + "\n" + data.mapLink);
+                user.send("You were sniped by " + firstPlace.u + "\n" + data.scoreData + "\n" + data.mapLink).catch(error => logger.info(error));
             }).catch(error => logger.info(error));
         }
     });

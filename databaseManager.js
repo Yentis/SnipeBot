@@ -209,7 +209,7 @@ module.exports = {
 
                 for (const score of scores) {
                     if (score.date >= oldDate && score.date < newDate) {
-                        playerIds.push(score.id);
+                        playerIds.push(score.playerId);
                     }
                 }
 
