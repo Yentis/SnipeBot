@@ -1,1 +1,1 @@
-worker: node server.js
+worker: npx ts-node server.ts
