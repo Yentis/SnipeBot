@@ -64,7 +64,7 @@ export async function send(
   if (!attachment || !attachmentName) {
     return channel.send(content, {
       split: false,
-      disableMentions: 'all'
+      disableMentions: 'everyone'
     });
   }
 
@@ -72,7 +72,7 @@ export async function send(
     content,
     {
       split: false,
-      disableMentions: 'all',
+      disableMentions: 'everyone',
       files: [{ attachment: Buffer.from(attachment), name: attachmentName }]
     }
   );
