@@ -15,26 +15,26 @@ const MAP_REGEX = /^https:\/\/osu.ppy.sh\/b\/[0-9]*$/;
 export async function getParamsFromMessage(message: Message): Promise<Params> {
   const params = new Params();
   const options = message.content.split(' ');
-  const secondItem = options[1];
 
   if (options.length <= 1) {
     const user = await getUser(message.author.username);
     if (user) params.username = user.username;
     return params;
   }
-  if (options.length === 2) {
-    params.username = secondItem;
-    return params;
-  }
 
-  const mode = Mode[secondItem];
-  const userNameIndex = mode !== undefined ? 2 : 1;
-
+  const mode = Mode[options[1]];
   if (mode !== undefined) {
+    options.splice(1, 1);
     params.mode = mode;
   }
 
-  params.username = options.slice(userNameIndex, message.content.length).join(' ');
+  if (options.length <= 1) {
+    const user = await getUser(message.author.username);
+    if (user) params.username = user.username;
+    return params;
+  }
+
+  params.username = options.slice(1, options.length).join(' ');
   return params;
 }
 
