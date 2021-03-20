@@ -9,6 +9,10 @@ export async function start(): Promise<void> {
   if (result) linkedUsers = result;
 }
 
+export function getLinkedUsers(): Record<string, number> {
+  return linkedUsers;
+}
+
 export function getLinkedUser(userId: number): string | null {
   return Object.keys(linkedUsers).find((key) => linkedUsers[key] === userId) || null;
 }

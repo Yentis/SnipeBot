@@ -2,6 +2,7 @@ import { Message } from 'discord.js';
 import Params from '../classes/params';
 import { send } from '../services/discordService';
 import { getUser } from '../services/osuApiService';
+import { getLinkedUsers } from '../services/userLinkingService';
 
 const Mode: Record<string, number> = {
   osu: 0,
@@ -12,12 +13,19 @@ const Mode: Record<string, number> = {
 const OWNER_ID = 68834122860077056;
 const MAP_REGEX = /^https:\/\/osu.ppy.sh\/b\/[0-9]*$/;
 
+async function tryGetUser(message: Message) {
+  const user = getLinkedUsers()[message.author.id];
+  if (user !== undefined) return getUser(user.toString());
+
+  return getUser(message.author.username);
+}
+
 export async function getParamsFromMessage(message: Message): Promise<Params> {
   const params = new Params();
   const options = message.content.split(' ');
 
   if (options.length <= 1) {
-    const user = await getUser(message.author.username);
+    const user = await tryGetUser(message);
     if (user) params.username = user.username;
     return params;
   }
@@ -29,7 +37,7 @@ export async function getParamsFromMessage(message: Message): Promise<Params> {
   }
 
   if (options.length <= 1) {
-    const user = await getUser(message.author.username);
+    const user = await tryGetUser(message);
     if (user) params.username = user.username;
     return params;
   }
