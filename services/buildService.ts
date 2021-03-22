@@ -80,9 +80,9 @@ function notifyLinkedUsers(playerIds: number[], data: ParsedScoresResponse) {
     const localUser = getLinkedUser(playerId);
     if (!localUser || playerId === firstPlace.id) return;
 
-    getUser(localUser).then((user) => {
-      user.send(`You were sniped by ${firstPlace.u}\n${data.scoreData}\n${data.mapLink}`).catch((error) => console.error(error));
-    }).catch((error) => console.error(error));
+    const user = getUser(localUser);
+    if (!user) return;
+    user.send(`You were sniped by ${firstPlace.u}\n${data.scoreData}\n${data.mapLink}`).catch((error) => console.error(error));
   });
 }
 

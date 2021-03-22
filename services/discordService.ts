@@ -1,4 +1,5 @@
 import {
+  Channel,
   Client, DMChannel, Message, NewsChannel, TextChannel, User
 } from 'discord.js';
 import RawEvent from '../interfaces/rawEvent';
@@ -27,6 +28,7 @@ bot.on('message', (message) => {
       .catch((error) => console.error(error));
     return;
   }
+  if (!message.content.startsWith(COMMAND_PREFIX)) return;
 
   // Remove the command prefix and any digits (for the top command)
   const commandText = message.content.split(' ')[0].replace(COMMAND_PREFIX, '').replace(/[0-9]/g, '');
@@ -51,8 +53,8 @@ bot.on('ready', () => {
   }).catch((error) => console.error(error));
 });
 
-export function getBot(): Client {
-  return bot;
+export function getBotId(): string | undefined {
+  return bot.user?.id;
 }
 
 export async function send(
@@ -94,8 +96,12 @@ export function publish(message: string): Promise<Message[]> {
   return Promise.all(promises);
 }
 
-export function getUser(userId: string): Promise<User> {
-  return bot.users.fetch(userId);
+export function getUser(userId: string): User | undefined {
+  return bot.users.cache.get(userId);
+}
+
+export function getChannel(channelId: string): Channel | undefined {
+  return bot.channels.cache.get(channelId);
 }
 
 export async function login(): Promise<void> {
