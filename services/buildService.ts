@@ -179,7 +179,7 @@ export async function createDatabase(
 
   let index = 0;
   // Keep looping until shouldStop becomes true or we reach the end of the list
-  while (!shouldStop && index < totalLength) {
+  while (!shouldStop && (index + 1 + startIndex) <= totalLength) {
     // eslint-disable-next-line no-await-in-loop
     await doRequest(index, idList, startIndex, totalLength);
     index += 1;
