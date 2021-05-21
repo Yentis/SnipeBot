@@ -1,8 +1,6 @@
-import { Message } from 'discord.js';
+import { CommandInteraction } from 'discord.js';
 import { getFirstPlaceTop } from '../services/databaseService';
-import { send } from '../services/discordService';
-import { COMMAND_PREFIX } from '../services/settingsService';
-import { getParamsFromMessage } from './utils';
+import { getModeFromOptions } from './utils';
 
 async function getRankings(size: number, mode: number) {
   const rows = await getFirstPlaceTop(mode, size);
@@ -11,18 +9,13 @@ async function getRankings(size: number, mode: number) {
   return results.join('\n');
 }
 
-export default async function run(message: Message): Promise<void> {
-  const command = message.content.split(' ')[0];
-  const amount = parseInt(command.replace(`${COMMAND_PREFIX}top`, ''), 10);
-
-  if (!Number.isInteger(amount)) {
-    await send(message.channel, 'Invalid top count');
-    return;
-  }
-
-  const params = await getParamsFromMessage(message);
+export default async function run(interaction: CommandInteraction): Promise<void> {
+  const amount = interaction.options[0].value as number;
   const topCount = Math.min(100, Math.max(1, amount));
 
-  const results = await getRankings(topCount, params.mode);
-  await send(message.channel, results);
+  const mode = getModeFromOptions(interaction.options);
+  const results = await getRankings(topCount, mode);
+
+  if (results !== '') await interaction.reply(results);
+  else await interaction.reply('No users found');
 }

@@ -1,11 +1,24 @@
-import { DMChannel, Message } from 'discord.js';
-import { send } from '../services/discordService';
+import { CommandInteraction, DMChannel } from 'discord.js';
 import { addLinkedChannel } from '../services/settingsService';
-import { isMod } from './utils';
+import { isMod, replyWithNoPermission, replyWithNotAvailableDM } from './utils';
 
-export default async function run(message: Message): Promise<void> {
-  if (message.channel instanceof DMChannel || !isMod(message)) return;
+export default async function run(interaction: CommandInteraction): Promise<void> {
+  if (interaction.channel instanceof DMChannel) {
+    await replyWithNotAvailableDM(interaction);
+    return;
+  }
 
-  const added = addLinkedChannel(message.channel.id);
-  if (added) await send(message.channel, 'This channel can now be used by the bot.');
+  if (!isMod(interaction.member)) {
+    await replyWithNoPermission(interaction);
+    return;
+  }
+
+  if (interaction.channel === null) {
+    await interaction.reply('No valid channel found', { ephemeral: true });
+    return;
+  }
+
+  const added = addLinkedChannel(interaction.channel.id);
+  if (added) await interaction.reply('This channel can now be used by the bot', { ephemeral: true });
+  else await interaction.reply('This channel is already linked', { ephemeral: true });
 }

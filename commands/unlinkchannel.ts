@@ -1,15 +1,26 @@
-import { DMChannel, Message } from 'discord.js';
-import { send } from '../services/discordService';
+import { CommandInteraction, DMChannel } from 'discord.js';
 import { removeLinkedChannel } from '../services/settingsService';
-import { isMod, sendNoPermissionMessage } from './utils';
+import {
+  isMod, replyWithInvalidChannel, replyWithNoPermission, replyWithNotAvailableDM
+} from './utils';
 
-export default async function run(message: Message): Promise<void> {
-  if (message.channel instanceof DMChannel) return;
-  if (!isMod(message)) {
-    await sendNoPermissionMessage(message);
+export default async function run(interaction: CommandInteraction): Promise<void> {
+  if (interaction.channel instanceof DMChannel) {
+    await replyWithNotAvailableDM(interaction);
     return;
   }
 
-  const removed = removeLinkedChannel(message.channel.id);
-  if (removed) await send(message.channel, 'This channel was unlinked.');
+  if (!isMod(interaction.member)) {
+    await replyWithNoPermission(interaction);
+    return;
+  }
+
+  if (interaction.channel === null) {
+    await replyWithInvalidChannel(interaction);
+    return;
+  }
+
+  const removed = removeLinkedChannel(interaction.channel.id);
+  if (removed) await interaction.reply('This channel was unlinked', { ephemeral: true });
+  else await interaction.reply('This channel is not linked', { ephemeral: true });
 }

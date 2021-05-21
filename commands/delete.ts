@@ -1,22 +1,17 @@
-import { Message } from 'discord.js';
-import Command from '../enums/command';
-import { send } from '../services/discordService';
-import { COMMAND_PREFIX } from '../services/settingsService';
+import { CommandInteraction, DMChannel, TextChannel } from 'discord.js';
+import { replyWithInvalidChannel } from './utils';
 
-export default async function run(message: Message): Promise<void> {
-  const echoContent = message.content.substring(
-    COMMAND_PREFIX.length + Command[Command.DELETE].length,
-    message.content.length
-  );
+export default async function run(interaction: CommandInteraction): Promise<void> {
+  const content = interaction.options[0].value || '';
 
-  await send(
-    message.channel,
-    `${echoContent} has been DELETED!`
-  );
-
-  try {
-    await message.delete();
-  } catch (error) {
-    // Don't care if we can't delete it
+  if (
+    !(interaction.channel instanceof TextChannel)
+    && !(interaction.channel instanceof DMChannel)
+  ) {
+    await replyWithInvalidChannel(interaction);
+    return;
   }
+
+  await interaction.reply('Done!', { ephemeral: true });
+  await interaction.channel.send(`${content as string} has been deleted!`);
 }

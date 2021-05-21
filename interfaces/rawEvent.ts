@@ -1,11 +1,9 @@
+import { WSEventType } from 'discord.js';
+import Reaction from './reaction';
+
 interface RawEvent {
-  t: string
-  d: {
-    emoji: { id: string, name: string },
-    'user_id': string,
-    'channel_id': string,
-    'message_id': string
-  }
+  t: WSEventType
+  d: Reaction
 }
 
 export default RawEvent;

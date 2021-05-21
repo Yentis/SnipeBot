@@ -1,6 +1,7 @@
-import { Message } from 'discord.js';
-import Params from '../classes/params';
-import { send } from '../services/discordService';
+import {
+  CommandInteraction, CommandInteractionOption, GuildMember, Message, User
+} from 'discord.js';
+import LocalUser from '../classes/localUser';
 import { getUser } from '../services/osuApiService';
 import { getLinkedUsers } from '../services/userLinkingService';
 
@@ -13,37 +14,37 @@ const Mode: Record<string, number> = {
 const OWNER_ID = 68834122860077056;
 const MAP_REGEX = /^https:\/\/osu.ppy.sh\/b\/[0-9]*$/;
 
-async function tryGetUser(message: Message) {
-  const user = getLinkedUsers()[message.author.id];
-  if (user !== undefined) return getUser(user.toString());
+export async function tryGetUser(user: User): Promise<LocalUser | null> {
+  const userId = getLinkedUsers()[user.id];
+  if (userId !== undefined) return getUser(userId.toString());
 
-  return getUser(message.author.username);
+  return getUser(user.username);
 }
 
-export async function getParamsFromMessage(message: Message): Promise<Params> {
-  const params = new Params();
-  const options = message.content.split(' ');
+export function getUsernameFromOptions(options: Array<CommandInteractionOption>): string | null {
+  const username = options.find((option) => option.name === 'username')?.value;
+  if (typeof username !== 'string') return null;
 
-  if (options.length <= 1) {
-    const user = await tryGetUser(message);
-    if (user) params.username = user.username;
-    return params;
-  }
+  return username;
+}
 
-  const mode = Mode[options[1]];
-  if (mode !== undefined) {
-    options.splice(1, 1);
-    params.mode = mode;
-  }
+export function getModeFromOptions(options: Array<CommandInteractionOption>): number {
+  const mode = options.find((option) => option.name === 'mode')?.value;
+  if (typeof mode !== 'string') return 0;
 
-  if (options.length <= 1) {
-    const user = await tryGetUser(message);
-    if (user) params.username = user.username;
-    return params;
-  }
+  return Mode[mode] || 0;
+}
 
-  params.username = options.slice(1, options.length).join(' ');
-  return params;
+export function getUnclaimedFromOptions(
+  options: Array<CommandInteractionOption>
+): CommandInteractionOption | undefined {
+  return options.find((option) => option.name === 'unclaimed');
+}
+
+export function getUserFromOptions(
+  options: Array<CommandInteractionOption>
+): CommandInteractionOption | undefined {
+  return options.find((option) => option.name === 'user');
 }
 
 export function tryGetBeatmapFromMessage(message: Message, botId: string | null): string | null {
@@ -58,14 +59,23 @@ export function tryGetBeatmapFromMessage(message: Message, botId: string | null)
   return split[split.length - 1];
 }
 
-export function isMod(message: Message): boolean {
-  return message.member?.hasPermission('KICK_MEMBERS') === true;
+export function isMod(member: unknown): boolean {
+  if (!(member instanceof GuildMember)) return false;
+  return member.permissions.has('KICK_MEMBERS') === true;
 }
 
-export function isOwner(message: Message): boolean {
-  return parseInt(message.author.id, 10) === OWNER_ID;
+export function isOwner(id: string): boolean {
+  return parseInt(id, 10) === OWNER_ID;
 }
 
-export async function sendNoPermissionMessage(message: Message): Promise<void> {
-  await send(message.channel, 'Sorry, you\'re too young to use this command.');
+export async function replyWithInvalidChannel(interaction: CommandInteraction): Promise<void> {
+  await interaction.reply('Invalid channel', { ephemeral: true });
+}
+
+export async function replyWithNoPermission(interaction: CommandInteraction): Promise<void> {
+  await interaction.reply('Sorry, you\'re too young to use this command', { ephemeral: true });
+}
+
+export async function replyWithNotAvailableDM(interaction: CommandInteraction): Promise<void> {
+  await interaction.reply('This command is not available in DMs', { ephemeral: true });
 }

@@ -1,11 +1,16 @@
-import { Message } from 'discord.js';
-import { getParamsFromMessage } from './utils';
+import { CommandInteraction, CommandInteractionOption } from 'discord.js';
+import {
+  getModeFromOptions,
+  getUnclaimedFromOptions,
+  getUserFromOptions,
+  getUsernameFromOptions,
+  tryGetUser
+} from './utils';
 import { getUser } from '../services/osuApiService';
 import { getFirstPlacesForPlayer, getMapsWithNoScores } from '../services/databaseService';
-import { send } from '../services/discordService';
-import User from '../classes/user';
+import LocalUser from '../classes/localUser';
 
-async function countThroughMapIds(user: User | null, mode: number) {
+async function countThroughMapIds(user: LocalUser | null, mode: number) {
   const userId = user ? parseInt(user.userId, 10) : null;
 
   let rows;
@@ -18,29 +23,52 @@ async function countThroughMapIds(user: User | null, mode: number) {
   return rows.length;
 }
 
-export default async function run(message: Message): Promise<void> {
-  const params = await getParamsFromMessage(message);
-  if (!params.username) {
-    await send(message.channel, 'Please enter a valid username.');
+async function sendReply(
+  interaction: CommandInteraction,
+  options: Array<CommandInteractionOption>,
+  user: LocalUser | null,
+  emptyResponseText: string,
+  // eslint-disable-next-line no-unused-vars
+  responseText: (count: number) => string
+) {
+  const mode = getModeFromOptions(options);
+  const count = await countThroughMapIds(user, mode);
+  if (count === 0) {
+    await interaction.reply(emptyResponseText);
     return;
   }
 
-  const user = params.username === 'unclaimed' ? null : await getUser(params.username);
-  const username = user?.username;
+  await interaction.reply(responseText(count));
+}
 
-  const count = await countThroughMapIds(user, params.mode);
-  if (count === 0) {
-    await send(
-      message.channel,
-      !username ? 'All maps have a #1 score.' : `${username} does not have any #1 scores.`
+export default async function run(interaction: CommandInteraction): Promise<void> {
+  const unclaimed = getUnclaimedFromOptions(interaction.options);
+  if (unclaimed !== undefined) {
+    await sendReply(
+      interaction,
+      unclaimed.options || [],
+      null,
+      'All maps have a #1 score',
+      (count) => `There are ${count} maps with no #1 score`
     );
     return;
   }
 
-  if (!username) {
-    await send(message.channel, `There are ${count} maps with no #1 score.`);
+  const options = getUserFromOptions(interaction.options)?.options || [];
+  const targetUser = getUsernameFromOptions(options);
+  const user = targetUser !== null ? await getUser(targetUser) : await tryGetUser(interaction.user);
+
+  if (user === null) {
+    await interaction.reply('User not found', { ephemeral: true });
     return;
   }
 
-  await send(message.channel, `${username} is first place on ${count} maps.`);
+  const { username } = user;
+  await sendReply(
+    interaction,
+    options,
+    user,
+    `${username} does not have any #1 scores`,
+    (count) => `${username} is first place on ${count} maps`
+  );
 }

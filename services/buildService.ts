@@ -23,6 +23,8 @@ function sleep(time: number) {
 }
 
 async function parseResponse(response: Response): Promise<ParsedScoresResponse | null> {
+  if (response.status === 404) return null;
+
   const { scores } = await response.json() as ScoresResponse;
   const highestScore = scores[0];
   if (!highestScore) return null;
@@ -80,9 +82,11 @@ function notifyLinkedUsers(playerIds: number[], data: ParsedScoresResponse) {
     const localUser = getLinkedUser(playerId);
     if (!localUser || playerId === firstPlace.id) return;
 
-    const user = getUser(localUser);
-    if (!user) return;
-    user.send(`You were sniped by ${firstPlace.u}\n${data.scoreData}\n${data.mapLink}`).catch((error) => console.error(error));
+    getUser(localUser).then((user) => {
+      user?.send(
+        `You were sniped by ${firstPlace.u}\n${data.scoreData}\n${data.mapLink}\nReact with :white_check_mark: to remove this message`
+      ).catch((error) => console.error(error));
+    }).catch((error) => console.error(error));
   });
 }
 

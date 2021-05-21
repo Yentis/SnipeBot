@@ -1,23 +1,18 @@
-import { Message } from 'discord.js';
-import { send } from '../services/discordService';
+import { CommandInteraction } from 'discord.js';
 import { getUser } from '../services/osuApiService';
 import { linkUser } from '../services/userLinkingService';
-import { getParamsFromMessage } from './utils';
+import { getUsernameFromOptions } from './utils';
 
-export default async function run(message: Message): Promise<void> {
-  const params = await getParamsFromMessage(message);
-  if (!params.username) {
-    await send(message.channel, 'Please enter a valid username.');
+export default async function run(interaction: CommandInteraction): Promise<void> {
+  const username = getUsernameFromOptions(interaction.options) || interaction.user.username;
+  const user = await getUser(username);
+
+  if (user === null) {
+    await interaction.reply('User was not found', { ephemeral: true });
     return;
   }
 
-  const user = await getUser(params.username);
-  if (!user) {
-    await send(message.channel, 'User was not found.');
-    return;
-  }
-
-  const linked = linkUser(message.author.id, parseInt(user.userId, 10));
-  if (linked) await send(message.channel, `Linked <@${message.author.id}> to osu! user ${user.username}`);
-  else await send(message.channel, 'You are already linked to this osu! user.');
+  const linked = linkUser(interaction.user.id, parseInt(user.userId, 10));
+  if (linked) await interaction.reply(`Linked <@${interaction.user.id}> to osu! user ${user.username}`);
+  else await interaction.reply('You are already linked to this osu! user');
 }

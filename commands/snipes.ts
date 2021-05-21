@@ -1,10 +1,13 @@
-import { Message } from 'discord.js';
-import { getParamsFromMessage } from './utils';
+import {
+  APIMessage, CommandInteraction, DMChannel, TextChannel
+} from 'discord.js';
+import {
+  getModeFromOptions, getUsernameFromOptions, replyWithInvalidChannel, tryGetUser
+} from './utils';
 import { generateHtmlForSnipes } from '../services/htmlService';
 import { getUser } from '../services/osuApiService';
 import { getMapsForPlayer } from '../services/databaseService';
-import { send } from '../services/discordService';
-import User from '../classes/user';
+import LocalUser from '../classes/localUser';
 import Beatmap from '../classes/database/beatmap';
 import Score from '../classes/database/score';
 
@@ -45,7 +48,7 @@ function sortByDifficulty(a: Beatmap, b: Beatmap) {
   return 0;
 }
 
-function getListOfSnipedScores(maps: Beatmap[], user: User) {
+function getListOfSnipedScores(maps: Beatmap[], user: LocalUser) {
   const snipedList = maps
     .filter((map) => !!map.scores && wasFirstPlace(map.scores, parseInt(user.userId, 10)));
 
@@ -55,31 +58,35 @@ function getListOfSnipedScores(maps: Beatmap[], user: User) {
   };
 }
 
-export default async function run(message: Message): Promise<void> {
-  const params = await getParamsFromMessage(message);
-  if (!params.username) {
-    await send(message.channel, 'Please enter a valid username.');
+export default async function run(interaction: CommandInteraction): Promise<void> {
+  if (
+    !(interaction.channel instanceof TextChannel)
+    && !(interaction.channel instanceof DMChannel)
+  ) {
+    await replyWithInvalidChannel(interaction);
     return;
   }
 
-  const user = await getUser(params.username);
-  if (!user) {
-    await send(message.channel, 'User was not found.');
+  const targetUser = getUsernameFromOptions(interaction.options);
+  const user = targetUser !== null ? await getUser(targetUser) : await tryGetUser(interaction.user);
+
+  if (user === null) {
+    await interaction.reply('User was not found');
     return;
   }
 
-  const maps = await getMapsForPlayer(user.userId, params.mode);
+  const mode = getModeFromOptions(interaction.options);
+  const maps = await getMapsForPlayer(user.userId, mode);
   const result = getListOfSnipedScores(maps, user);
 
   if (result.amount === 0) {
-    await send(message.channel, `${user.username} is not currently sniped on any scores.`);
+    await interaction.reply(`${user.username} is not currently sniped on any scores`);
     return;
   }
 
-  await send(
-    message.channel,
-    `Here are all the maps ${user.username} has been sniped on (${result.amount} maps):`,
-    result.list,
-    `Snipes ${user.username}.html`
-  );
+  await interaction.reply(new APIMessage(interaction.channel, {
+    content: `Here are all the maps ${user.username} has been sniped on (${result.amount} maps):`,
+    split: false,
+    files: [{ attachment: Buffer.from(result.list), name: `Snipes ${user.username}.html` }]
+  }));
 }

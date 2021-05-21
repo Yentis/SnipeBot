@@ -1,24 +1,26 @@
-import { Message } from 'discord.js';
-import Command from '../enums/command';
-import { send } from '../services/discordService';
-import { COMMAND_PREFIX } from '../services/settingsService';
-import { isMod, isOwner } from './utils';
+import {
+  CommandInteraction, DMChannel, TextChannel
+} from 'discord.js';
+import {
+  isMod, isOwner, replyWithInvalidChannel, replyWithNoPermission
+} from './utils';
 
-export default async function run(message: Message): Promise<void> {
-  if (!isMod(message) && !isOwner(message)) return;
-  const echoContent = message.content.substring(
-    COMMAND_PREFIX.length + Command[Command.ECHO].length,
-    message.content.length
-  );
-
-  await send(
-    message.channel,
-    echoContent
-  );
-
-  try {
-    await message.delete();
-  } catch (error) {
-    // Don't care if we can't delete it
+export default async function run(interaction: CommandInteraction): Promise<void> {
+  if (!isMod(interaction.member) && !isOwner(interaction.user.id)) {
+    await replyWithNoPermission(interaction);
+    return;
   }
+
+  const content = interaction.options[0].value || '';
+
+  if (
+    !(interaction.channel instanceof TextChannel)
+    && !(interaction.channel instanceof DMChannel)
+  ) {
+    await replyWithInvalidChannel(interaction);
+    return;
+  }
+
+  await interaction.reply('Done!', { ephemeral: true });
+  await interaction.channel.send(content);
 }

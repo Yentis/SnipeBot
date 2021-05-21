@@ -1,16 +1,32 @@
 import {
   Channel,
-  Client, DMChannel, Message, NewsChannel, TextChannel, User
+  Client, DMChannel, Intents, Message, NewsChannel, TextChannel, User
 } from 'discord.js';
 import RawEvent from '../interfaces/rawEvent';
 import { getLinkedChannels, getCurrentMapIndex, COMMAND_PREFIX } from './settingsService';
-import handleCommand from '../commands/manager';
+import handleCommand, { getCommandData } from '../commands/manager';
 import Command from '../enums/command';
 import { tryGetBeatmapFromMessage } from '../commands/utils';
 import { createDatabase, getCountryScores, handleCountryScores } from './buildService';
 import { getMapIds } from './databaseService';
 
-const bot = new Client();
+const bot = new Client({
+  allowedMentions: {
+    parse: ['roles', 'users']
+  },
+  intents: [
+    Intents.FLAGS.GUILDS,
+    Intents.FLAGS.GUILD_MESSAGES,
+    Intents.FLAGS.DIRECT_MESSAGES,
+    Intents.FLAGS.DIRECT_MESSAGE_REACTIONS
+  ],
+  presence: {
+    activities: [{
+      type: 'WATCHING',
+      name: 'you miss'
+    }]
+  }
+});
 
 bot.on('raw', (event: RawEvent) => {
   if (event.t !== 'MESSAGE_REACTION_ADD') return;
@@ -19,26 +35,33 @@ bot.on('raw', (event: RawEvent) => {
 
 bot.on('message', (message) => {
   const beatmapId = tryGetBeatmapFromMessage(message, bot.user?.id || null);
-  if (beatmapId) {
-    getCountryScores(beatmapId)
-      .then((data) => {
-        if (!data) return;
-        handleCountryScores(data).catch((error) => console.error(error));
-      })
-      .catch((error) => console.error(error));
-    return;
-  }
-  if (!message.content.startsWith(COMMAND_PREFIX)) return;
+  if (!beatmapId) return;
+
+  getCountryScores(beatmapId)
+    .then((data) => {
+      if (!data) return;
+      handleCountryScores(data).catch((error) => console.error(error));
+    })
+    .catch((error) => console.error(error));
+});
+
+bot.on('interaction', (interaction) => {
+  if (!interaction.isCommand()) return;
+  const { commandName } = interaction;
 
   // Remove the command prefix and any digits (for the top command)
-  const commandText = message.content.split(' ')[0].replace(COMMAND_PREFIX, '').replace(/[0-9]/g, '');
+  const commandText = commandName.split(' ')[0].replace(COMMAND_PREFIX, '').replace(/[0-9]/g, '');
   const command: Command | undefined = Command[commandText.toUpperCase() as keyof typeof Command];
   if (!command) return;
 
-  message.channel.startTyping().catch((error) => console.error(error));
-  handleCommand(command, message)
-    .catch((error) => console.error(error))
-    .finally(() => message.channel.stopTyping());
+  handleCommand(command, interaction).catch((error) => console.error(error));
+});
+
+bot.once('ready', () => {
+  getCommandData().forEach((command) => {
+    bot.application?.commands?.create(command)
+      .catch((error) => console.error(error));
+  });
 });
 
 bot.on('ready', () => {
@@ -59,25 +82,11 @@ export function getBotId(): string | undefined {
 
 export async function send(
   channel: TextChannel | DMChannel | NewsChannel,
-  content: string,
-  attachment?: string,
-  attachmentName?: string
+  content: string
 ): Promise<Message> {
-  if (!attachment || !attachmentName) {
-    return channel.send(content, {
-      split: false,
-      disableMentions: 'everyone'
-    });
-  }
-
-  return channel.send(
-    content,
-    {
-      split: false,
-      disableMentions: 'everyone',
-      files: [{ attachment: Buffer.from(attachment), name: attachmentName }]
-    }
-  );
+  return channel.send(content, {
+    split: false
+  });
 }
 
 export function publish(message: string): Promise<Message[]> {
@@ -96,8 +105,11 @@ export function publish(message: string): Promise<Message[]> {
   return Promise.all(promises);
 }
 
-export function getUser(userId: string): User | undefined {
-  return bot.users.cache.get(userId);
+export function getUser(userId: string): Promise<User | undefined> {
+  const user = bot.users.cache.get(userId);
+  if (user) return Promise.resolve(user);
+
+  return bot.users.fetch(userId);
 }
 
 export function getChannel(channelId: string): Channel | undefined {

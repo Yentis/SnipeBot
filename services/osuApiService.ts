@@ -1,7 +1,7 @@
 import fetch from 'node-fetch';
 import { URLSearchParams } from 'url';
 import BeatmapResponse from '../classes/osuApi/beatmapResponse';
-import User from '../classes/user';
+import LocalUser from '../classes/localUser';
 import UserResponse from '../classes/userResponse';
 import { OSU_URL } from './buildService';
 import {
@@ -23,19 +23,19 @@ export async function start(): Promise<void> {
 }
 
 // User may be either a username or a userId
-function getExistingUser(user: string): User | null {
+function getExistingUser(user: string): LocalUser | null {
   const username = cachedUsers[user];
   if (username) {
-    return new User(user, username);
+    return new LocalUser(user, username);
   }
 
   const cachedUserKey = Object.keys(cachedUsers)
     .find((key) => cachedUsers[key].toLowerCase() === user.toLowerCase());
 
-  return cachedUserKey ? new User(cachedUserKey, cachedUsers[cachedUserKey]) : null;
+  return cachedUserKey ? new LocalUser(cachedUserKey, cachedUsers[cachedUserKey]) : null;
 }
 
-export async function getUser(user: string): Promise<User | null> {
+export async function getUser(user: string): Promise<LocalUser | null> {
   const existingUser = getExistingUser(user);
   if (existingUser) return existingUser;
 
@@ -51,7 +51,7 @@ export async function getUser(user: string): Promise<User | null> {
   cachedUsers[fetchedUser.user_id] = fetchedUser.username;
 
   uploadFile(CACHED_USERS_FILE, JSON.stringify(cachedUsers)).catch((error) => console.error(error));
-  return new User(fetchedUser.user_id, fetchedUser.username);
+  return new LocalUser(fetchedUser.user_id, fetchedUser.username);
 }
 
 function twoDigits(d: number): string {

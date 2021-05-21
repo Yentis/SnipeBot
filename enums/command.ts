@@ -12,7 +12,6 @@ enum Command {
   COUNT,
   SNIPES,
   DELETE,
-  HELP,
   TOP,
   REBUILD,
   REBUILDFAILED,

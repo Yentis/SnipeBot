@@ -1,20 +1,20 @@
-import { Message } from 'discord.js';
+import { CommandInteraction } from 'discord.js';
 import { createDatabase } from '../services/buildService';
-import { send } from '../services/discordService';
 import { getFailedIds } from '../services/settingsService';
-import { isOwner, sendNoPermissionMessage } from './utils';
+import { isOwner, replyWithNoPermission } from './utils';
 
-export default async function run(message: Message): Promise<void> {
-  if (!isOwner(message)) {
-    await sendNoPermissionMessage(message);
+export default async function run(interaction: CommandInteraction): Promise<void> {
+  if (!isOwner(interaction.user.id)) {
+    await replyWithNoPermission(interaction);
     return;
   }
 
   const failedIds = getFailedIds();
   if (failedIds.length === 0) {
-    await send(message.channel, 'Nothing to rebuild.');
+    await interaction.reply('Nothing to rebuild');
     return;
   }
 
+  await interaction.reply('Rebuild started', { ephemeral: true });
   await createDatabase(failedIds.slice(0), 0, true);
 }

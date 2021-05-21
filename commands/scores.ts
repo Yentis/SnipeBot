@@ -1,12 +1,20 @@
-import { Message } from 'discord.js';
-import { getParamsFromMessage } from './utils';
+import {
+  APIMessage, CommandInteraction, CommandInteractionOption, DMChannel, TextChannel
+} from 'discord.js';
+import {
+  getModeFromOptions,
+  getUnclaimedFromOptions,
+  getUserFromOptions,
+  getUsernameFromOptions,
+  replyWithInvalidChannel,
+  tryGetUser
+} from './utils';
 import { generateHtmlForMaps } from '../services/htmlService';
 import { getUser } from '../services/osuApiService';
 import { getFirstPlacesForPlayer, getMapsWithNoScores } from '../services/databaseService';
-import { send } from '../services/discordService';
-import User from '../classes/user';
+import LocalUser from '../classes/localUser';
 
-async function countThroughMapIds(user: User | null, mode: number) {
+async function countThroughMapIds(user: LocalUser | null, mode: number) {
   const userId = user ? parseInt(user.userId, 10) : null;
 
   let rows;
@@ -22,39 +30,66 @@ async function countThroughMapIds(user: User | null, mode: number) {
   };
 }
 
-export default async function run(message: Message): Promise<void> {
-  const params = await getParamsFromMessage(message);
-  if (!params.username) {
-    await send(message.channel, 'Please enter a valid username.');
+async function sendReply(
+  interaction: CommandInteraction,
+  options: Array<CommandInteractionOption>,
+  user: LocalUser | null,
+  emptyResponseText: string,
+  responseText: string,
+  filename: string
+) {
+  if (
+    !(interaction.channel instanceof TextChannel)
+    && !(interaction.channel instanceof DMChannel)
+  ) {
+    await replyWithInvalidChannel(interaction);
     return;
   }
 
-  const user = params.username === 'unclaimed' ? null : await getUser(params.username);
-  const username = user?.username;
-
-  const list = await countThroughMapIds(user, params.mode);
+  const mode = getModeFromOptions(options);
+  const list = await countThroughMapIds(user, mode);
   if (list.amount === 0) {
-    await send(
-      message.channel,
-      !username ? 'All maps have a #1 score.' : `${username} does not have any #1 scores.`
-    );
+    await interaction.reply(emptyResponseText);
     return;
   }
 
-  if (!username) {
-    await send(
-      message.channel,
-      `Here are all the maps without any scores (${list.amount}):`,
-      list.list,
+  await interaction.reply(new APIMessage(interaction.channel, {
+    content: `${responseText} (${list.amount} maps):`,
+    split: false,
+    files: [{ attachment: Buffer.from(list.list), name: filename }]
+  }));
+}
+
+export default async function run(interaction: CommandInteraction): Promise<void> {
+  const unclaimed = getUnclaimedFromOptions(interaction.options);
+  if (unclaimed !== undefined) {
+    await sendReply(
+      interaction,
+      unclaimed.options || [],
+      null,
+      'All maps have a #1 score',
+      'Here are all the maps without any scores',
       'Unclaimed Maps.html'
     );
     return;
   }
 
-  await send(
-    message.channel,
-    `Here are all the maps ${username} is first place on (${list.amount} maps):`,
-    list.list,
+  const options = getUserFromOptions(interaction.options)?.options || [];
+  const targetUser = getUsernameFromOptions(options);
+  const user = targetUser !== null ? await getUser(targetUser) : await tryGetUser(interaction.user);
+
+  if (user === null) {
+    await interaction.reply('User not found', { ephemeral: true });
+    return;
+  }
+
+  const { username } = user;
+  await sendReply(
+    interaction,
+    options,
+    user,
+    `${username} does not have any #1 scores`,
+    `Here are all the maps ${username} is first place on`,
     `Scores ${username}.html`
   );
 }
