@@ -1,13 +1,8 @@
-import { CommandInteraction, DMChannel } from 'discord.js';
+import { CommandInteraction } from 'discord.js';
 import { getProgressMessage } from '../services/buildService';
-import { replyWithInvalidChannel, replyWithNotAvailableDM } from './utils';
+import { replyWithInvalidChannel } from './utils';
 
 export default async function run(interaction: CommandInteraction): Promise<void> {
-  if (interaction.channel instanceof DMChannel) {
-    await replyWithNotAvailableDM(interaction);
-    return;
-  }
-
   if (interaction.channel === null) {
     await replyWithInvalidChannel(interaction);
     return;

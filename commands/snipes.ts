@@ -2,7 +2,11 @@ import {
   APIMessage, CommandInteraction, DMChannel, TextChannel
 } from 'discord.js';
 import {
-  getModeFromOptions, getUsernameFromOptions, replyWithInvalidChannel, tryGetUser
+  getModeFromOptions,
+  getOrCreateDMChannel,
+  getUsernameFromOptions,
+  replyWithInvalidChannel,
+  tryGetUser
 } from './utils';
 import { generateHtmlForSnipes } from '../services/htmlService';
 import { getUser } from '../services/osuApiService';
@@ -59,9 +63,12 @@ function getListOfSnipedScores(maps: Beatmap[], user: LocalUser) {
 }
 
 export default async function run(interaction: CommandInteraction): Promise<void> {
+  const channel = interaction.channel
+    || await getOrCreateDMChannel(interaction.channelID, interaction.user);
+
   if (
-    !(interaction.channel instanceof TextChannel)
-    && !(interaction.channel instanceof DMChannel)
+    !(channel instanceof TextChannel)
+    && !(channel instanceof DMChannel)
   ) {
     await replyWithInvalidChannel(interaction);
     return;
@@ -84,7 +91,7 @@ export default async function run(interaction: CommandInteraction): Promise<void
     return;
   }
 
-  await interaction.reply(new APIMessage(interaction.channel, {
+  await interaction.reply(new APIMessage(channel, {
     content: `Here are all the maps ${user.username} has been sniped on (${result.amount} maps):`,
     split: false,
     files: [{ attachment: Buffer.from(result.list), name: `Snipes ${user.username}.html` }]

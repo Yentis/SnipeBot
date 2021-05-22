@@ -2,6 +2,7 @@ import {
   CommandInteraction, DMChannel, TextChannel
 } from 'discord.js';
 import {
+  getOrCreateDMChannel,
   isMod, isOwner, replyWithInvalidChannel, replyWithNoPermission
 } from './utils';
 
@@ -12,15 +13,17 @@ export default async function run(interaction: CommandInteraction): Promise<void
   }
 
   const content = interaction.options[0].value || '';
+  const channel = interaction.channel
+    || await getOrCreateDMChannel(interaction.channelID, interaction.user);
 
   if (
-    !(interaction.channel instanceof TextChannel)
-    && !(interaction.channel instanceof DMChannel)
+    !(channel instanceof TextChannel)
+    && !(channel instanceof DMChannel)
   ) {
     await replyWithInvalidChannel(interaction);
     return;
   }
 
   await interaction.reply('Done!', { ephemeral: true });
-  await interaction.channel.send(content);
+  await channel.send(content);
 }

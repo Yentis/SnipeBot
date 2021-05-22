@@ -47,11 +47,9 @@ bot.on('message', (message) => {
 
 bot.on('interaction', (interaction) => {
   if (!interaction.isCommand()) return;
-  const { commandName } = interaction;
 
-  // Remove the command prefix and any digits (for the top command)
-  const commandText = commandName.split(' ')[0].replace(COMMAND_PREFIX, '').replace(/[0-9]/g, '');
-  const command: Command | undefined = Command[commandText.toUpperCase() as keyof typeof Command];
+  const { commandName } = interaction;
+  const command: Command | undefined = Command[commandName.toUpperCase() as keyof typeof Command];
   if (!command) return;
 
   handleCommand(command, interaction).catch((error) => console.error(error));
@@ -105,15 +103,18 @@ export function publish(message: string): Promise<Message[]> {
   return Promise.all(promises);
 }
 
-export function getUser(userId: string): Promise<User | undefined> {
+export function getUser(userId: string): Promise<User | null> {
   const user = bot.users.cache.get(userId);
   if (user) return Promise.resolve(user);
 
   return bot.users.fetch(userId);
 }
 
-export function getChannel(channelId: string): Channel | undefined {
-  return bot.channels.cache.get(channelId);
+export function getChannel(channelId: string): Promise<Channel | null> {
+  const channel = bot.channels.cache.get(channelId);
+  if (channel) return Promise.resolve(channel);
+
+  return bot.channels.fetch(channelId);
 }
 
 export async function login(): Promise<void> {

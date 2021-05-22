@@ -1,7 +1,8 @@
 import {
-  CommandInteraction, CommandInteractionOption, GuildMember, Message, User
+  CommandInteraction, CommandInteractionOption, DMChannel, GuildMember, Message, User
 } from 'discord.js';
 import LocalUser from '../classes/localUser';
+import { getChannel } from '../services/discordService';
 import { getUser } from '../services/osuApiService';
 import { getLinkedUsers } from '../services/userLinkingService';
 
@@ -76,6 +77,16 @@ export async function replyWithNoPermission(interaction: CommandInteraction): Pr
   await interaction.reply('Sorry, you\'re too young to use this command', { ephemeral: true });
 }
 
-export async function replyWithNotAvailableDM(interaction: CommandInteraction): Promise<void> {
-  await interaction.reply('This command is not available in DMs', { ephemeral: true });
+export async function getOrCreateDMChannel(
+  channelId: string | null,
+  user: User
+): Promise<DMChannel | null> {
+  if (channelId === null) {
+    return user.createDM();
+  }
+
+  const channel = await getChannel(channelId);
+  if (channel === null || !(channel instanceof DMChannel)) return null;
+
+  return channel;
 }

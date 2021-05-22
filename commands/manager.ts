@@ -20,6 +20,7 @@ import onRebuild from './rebuild';
 import onRebuildFailed from './rebuildfailed';
 import onStop from './stop';
 import onProgress from './progress';
+import { getOrCreateDMChannel, replyWithInvalidChannel } from './utils';
 
 export default async function handleCommand(
   command: Command,
@@ -45,11 +46,19 @@ export default async function handleCommand(
   }
 
   // All commands are available in DMs
+  const channel = interaction.channel
+    || await getOrCreateDMChannel(interaction.channelID, interaction.user);
+
+  if (channel === null) {
+    await replyWithInvalidChannel(interaction);
+    return;
+  }
+
   if (
-    interaction.channel === null
-    || (!(interaction.channel instanceof DMChannel)
-    && !getLinkedChannels().includes(interaction.channel?.id))
+    !(channel instanceof DMChannel)
+    && !getLinkedChannels().includes(channel.id)
   ) {
+    await replyWithInvalidChannel(interaction);
     return;
   }
 

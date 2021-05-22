@@ -1,20 +1,15 @@
-import { CommandInteraction, DMChannel } from 'discord.js';
+import { CommandInteraction } from 'discord.js';
 import { addLinkedChannel } from '../services/settingsService';
-import { isMod, replyWithNoPermission, replyWithNotAvailableDM } from './utils';
+import { isMod, replyWithInvalidChannel, replyWithNoPermission } from './utils';
 
 export default async function run(interaction: CommandInteraction): Promise<void> {
-  if (interaction.channel instanceof DMChannel) {
-    await replyWithNotAvailableDM(interaction);
+  if (interaction.channel === null) {
+    await replyWithInvalidChannel(interaction);
     return;
   }
 
   if (!isMod(interaction.member)) {
     await replyWithNoPermission(interaction);
-    return;
-  }
-
-  if (interaction.channel === null) {
-    await interaction.reply('No valid channel found', { ephemeral: true });
     return;
   }
 

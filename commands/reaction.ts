@@ -1,6 +1,7 @@
 import { DMChannel } from 'discord.js';
 import RawEvent from '../interfaces/rawEvent';
-import { getBotId, getChannel, getUser } from '../services/discordService';
+import { getBotId, getUser } from '../services/discordService';
+import { getOrCreateDMChannel } from './utils';
 
 async function deleteMessageFromChannel(channel: DMChannel, messageId: string) {
   const message = await channel.messages.fetch(messageId);
@@ -15,11 +16,9 @@ export default async function run(event: RawEvent): Promise<void> {
 
   const user = await getUser(reaction.user_id);
   if (!user) return;
-  let channel = getChannel(reaction.channel_id);
 
-  if (channel && !(channel instanceof DMChannel)) return;
-  if (!channel) channel = await user.createDM();
-  if (!(channel instanceof DMChannel)) return;
+  const channel = await getOrCreateDMChannel(reaction.channel_id, user);
+  if (channel === null) return;
 
   await deleteMessageFromChannel(channel, reaction.message_id);
 }

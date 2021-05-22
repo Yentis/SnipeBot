@@ -3,6 +3,7 @@ import {
 } from 'discord.js';
 import {
   getModeFromOptions,
+  getOrCreateDMChannel,
   getUnclaimedFromOptions,
   getUserFromOptions,
   getUsernameFromOptions,
@@ -38,9 +39,12 @@ async function sendReply(
   responseText: string,
   filename: string
 ) {
+  const channel = interaction.channel
+    || await getOrCreateDMChannel(interaction.channelID, interaction.user);
+
   if (
-    !(interaction.channel instanceof TextChannel)
-    && !(interaction.channel instanceof DMChannel)
+    !(channel instanceof TextChannel)
+    && !(channel instanceof DMChannel)
   ) {
     await replyWithInvalidChannel(interaction);
     return;
@@ -53,7 +57,7 @@ async function sendReply(
     return;
   }
 
-  await interaction.reply(new APIMessage(interaction.channel, {
+  await interaction.reply(new APIMessage(channel, {
     content: `${responseText} (${list.amount} maps):`,
     split: false,
     files: [{ attachment: Buffer.from(list.list), name: filename }]
