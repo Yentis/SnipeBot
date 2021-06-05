@@ -7,7 +7,7 @@ import {
   getFirstPlaceForMap, bulkAddScoreRows, getMapWasSniped, getMapCount
 } from './databaseService';
 import { publish, getUser } from './discordService';
-import { getLinkedUser } from './userLinkingService';
+import { getMatchingLinkedUsers } from './userLinkingService';
 import {
   getFailedIds, saveSettings, setCurrentMapIndex, setFailedId, tryUnsetFailedId
 } from './settingsService';
@@ -75,13 +75,13 @@ export async function getCountryScores(
   return parseResponse(response);
 }
 
-function notifyLinkedUsers(playerIds: number[], data: ParsedScoresResponse) {
+function notifyLinkedUsers(data: ParsedScoresResponse) {
   const firstPlace = data.scores[0];
+  if (data.scores.length === 1) return;
+  const previousFirstPlace = data.scores[1];
 
-  playerIds.forEach((playerId) => {
-    const localUser = getLinkedUser(playerId);
-    if (!localUser || playerId === firstPlace.id) return;
-
+  const playerId = previousFirstPlace.id;
+  getMatchingLinkedUsers(playerId)?.forEach((localUser) => {
     getUser(localUser).then((user) => {
       user?.send(
         `You were sniped by ${firstPlace.u}\n${data.scoreData}\n${data.mapLink}\nReact with :white_check_mark: to remove this message`
@@ -112,7 +112,7 @@ export async function handleCountryScores(data: ParsedScoresResponse): Promise<s
     return `First place is ${message}`;
   }
 
-  notifyLinkedUsers([score.playerId], data);
+  notifyLinkedUsers(data);
   if (firstPlace.id === score.playerId) return null;
   await publish(`${score.playerName} was sniped by ${message}`);
 

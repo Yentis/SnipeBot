@@ -13,8 +13,8 @@ export function getLinkedUsers(): Record<string, number> {
   return linkedUsers;
 }
 
-export function getLinkedUser(userId: number): string | null {
-  return Object.keys(linkedUsers).find((key) => linkedUsers[key] === userId) || null;
+export function getMatchingLinkedUsers(userId: number): Array<string> | null {
+  return Object.keys(linkedUsers).filter((key) => linkedUsers[key] === userId) || null;
 }
 
 function saveLinkedUsers(): Promise<void> {
