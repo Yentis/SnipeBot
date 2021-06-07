@@ -11,6 +11,7 @@ import { getMatchingLinkedUsers } from './userLinkingService';
 import {
   getFailedIds, saveSettings, setCurrentMapIndex, setFailedId, tryUnsetFailedId
 } from './settingsService';
+import Score from '../classes/database/score';
 
 export const OSU_URL = 'https://osu.ppy.sh';
 
@@ -75,12 +76,12 @@ export async function getCountryScores(
   return parseResponse(response);
 }
 
-function notifyLinkedUsers(data: ParsedScoresResponse) {
+function notifyLinkedUsers(data: ParsedScoresResponse, previousFirstPlace: Score) {
   const firstPlace = data.scores[0];
   if (data.scores.length === 1) return;
-  const previousFirstPlace = data.scores[1];
+  const { playerId } = previousFirstPlace;
+  if (playerId === firstPlace.id) return;
 
-  const playerId = previousFirstPlace.id;
   getMatchingLinkedUsers(playerId)?.forEach((localUser) => {
     getUser(localUser).then((user) => {
       user?.send(
@@ -112,7 +113,7 @@ export async function handleCountryScores(data: ParsedScoresResponse): Promise<s
     return `First place is ${message}`;
   }
 
-  notifyLinkedUsers(data);
+  notifyLinkedUsers(data, score);
   if (firstPlace.id === score.playerId) return null;
   await publish(`${score.playerName} was sniped by ${message}`);
 
