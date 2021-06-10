@@ -3,14 +3,14 @@ import { getCountryScores, handleCountryScores } from '../services/buildService'
 
 export default async function run(interaction: CommandInteraction): Promise<void> {
   const beatmapId = interaction.options[0].value as number;
-  const data = await getCountryScores(beatmapId.toString());
+  const scores = await getCountryScores(beatmapId.toString());
 
-  if (data === null || data.scores.length === 0) {
+  if (scores === null || scores.length === 0) {
     await interaction.reply('No scores found');
     return;
   }
 
-  const result = await handleCountryScores(data);
-  if (result) await interaction.reply(result);
+  const result = await handleCountryScores(scores);
+  if (result) await interaction.reply(result.content, result.embed);
   else await interaction.reply('Done!', { ephemeral: true });
 }

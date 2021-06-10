@@ -102,6 +102,18 @@ async function sendRequest(date: string): Promise<string | null> {
   return getNextDate(beatmaps[beatmaps.length - 1]);
 }
 
+export async function getBeatmapInfo(id: string): Promise<BeatmapResponse | null> {
+  const params = new URLSearchParams();
+  params.append('k', apiKey);
+  params.append('b', id);
+
+  const response = await fetch(`${API_URL}/get_beatmaps`, { method: 'post', body: params });
+  const beatmaps = await response.json() as BeatmapResponse[];
+
+  if (beatmaps.length === 0) return null;
+  return beatmaps[0];
+}
+
 async function saveNewBeatmaps(date: string): Promise<void> {
   let currentDate: string | null = date;
 

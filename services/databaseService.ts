@@ -2,8 +2,8 @@ import { Db, MongoClient } from 'mongodb';
 import BeatmapAddRequest from '../classes/database/beatmapAddRequest';
 import BeatmapResponse from '../classes/osuApi/beatmapResponse';
 import Score from '../classes/database/score';
-import ScoreInfo from '../classes/scoreInfo';
 import Beatmap from '../classes/database/beatmap';
+import * as ApiScore from '../classes/osuApi/score';
 
 const mongoDbUser = process.env.MONGODB_USER;
 if (!mongoDbUser) throw Error('MONGODB_USER environment variable not defined!');
@@ -165,15 +165,15 @@ export async function getFirstPlaceForMap(mapId: number): Promise<Score | null> 
   return results[0].firstPlace;
 }
 
-export function bulkAddScoreRows(mapId: number, scores: ScoreInfo[]): Promise<void> {
+export function bulkAddScoreRows(mapId: number, scores: ApiScore.default[]): Promise<void> {
   let firstPlace: Score;
 
   const scoreList = scores.map((score) => {
     const playerScore = new Score(
-      score.id,
-      score.u,
-      new Date(score.d),
-      score.s
+      parseInt(score.user.id, 10),
+      score.user.username,
+      new Date(score.created_at),
+      score.score
     );
 
     if (!firstPlace) {

@@ -1,6 +1,6 @@
 import {
   Channel,
-  Client, DMChannel, Intents, Message, NewsChannel, TextChannel, User
+  Client, DMChannel, Intents, Message, MessageOptions, NewsChannel, TextChannel, User
 } from 'discord.js';
 import RawEvent from '../interfaces/rawEvent';
 import { getLinkedChannels, getCurrentMapIndex, COMMAND_PREFIX } from './settingsService';
@@ -80,14 +80,12 @@ export function getBotId(): string | undefined {
 
 export async function send(
   channel: TextChannel | DMChannel | NewsChannel,
-  content: string
-): Promise<Message> {
-  return channel.send(content, {
-    split: false
-  });
+  content: MessageOptions
+): Promise<Message | Message[]> {
+  return channel.send(content);
 }
 
-export function publish(message: string): Promise<Message[]> {
+export function publish(message: MessageOptions): Promise<(Message | Message[])[]> {
   const promises = getLinkedChannels().reduce((result, channelId) => {
     const channel = bot.channels.cache.get(channelId);
     if (
@@ -98,7 +96,7 @@ export function publish(message: string): Promise<Message[]> {
 
     result.push(send(channel, message));
     return result;
-  }, [] as Promise<Message>[]);
+  }, [] as Promise<Message | Message[]>[]);
 
   return Promise.all(promises);
 }

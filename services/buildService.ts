@@ -1,7 +1,5 @@
 import fetch, { Response } from 'node-fetch';
-import { Message } from 'discord.js';
-import ParsedScoresResponse from '../classes/osuApi/parsedScoresResponse';
-import ScoreInfo from '../classes/scoreInfo';
+import { Message, MessageEmbed, MessageOptions } from 'discord.js';
 import ScoresResponse from '../classes/osuApi/scoresResponse';
 import {
   getFirstPlaceForMap, bulkAddScoreRows, getMapWasSniped, getMapCount
@@ -12,6 +10,9 @@ import {
   getFailedIds, saveSettings, setCurrentMapIndex, setFailedId, tryUnsetFailedId
 } from './settingsService';
 import Score from '../classes/database/score';
+import * as ApiScore from '../classes/osuApi/score';
+import { getBeatmapInfo } from './osuApiService';
+import { Mode } from '../commands/utils';
 
 export const OSU_URL = 'https://osu.ppy.sh';
 
@@ -23,33 +24,25 @@ function sleep(time: number) {
   return new Promise((_resolve, reject) => setTimeout(reject, time));
 }
 
-async function parseResponse(response: Response): Promise<ParsedScoresResponse | null> {
+async function parseResponse(response: Response): Promise<ApiScore.default[] | null> {
   if (response.status === 404) return null;
 
   const { scores } = await response.json() as ScoresResponse;
-  const highestScore = scores[0];
-  if (!highestScore) return null;
+  if (scores.length === 0) return null;
 
-  const beatmapId = highestScore.beatmap.id;
-  const parsedResponse = new ParsedScoresResponse(
-    beatmapId,
-    `${OSU_URL}/b/${beatmapId}`,
-    `Mode: ${scores[0].mode} | Score: ${highestScore.score.toLocaleString()}`
-  );
+  const beatmapInfo = await getBeatmapInfo(scores[0].beatmap.id.toString());
+  for (let i = 0; i < scores.length; i += 1) {
+    const score = scores[i];
+    score.beatmap.artist = beatmapInfo?.artist;
+    score.beatmap.title = beatmapInfo?.title;
+  }
 
-  parsedResponse.scores = scores.map((score) => new ScoreInfo(
-    parseInt(score.user.id, 10),
-    score.user.username,
-    score.created_at,
-    score.score
-  ));
-
-  return parsedResponse;
+  return scores;
 }
 
 export async function getCountryScores(
   beatmapId: string
-): Promise<ParsedScoresResponse | null> {
+): Promise<ApiScore.default[] | null> {
   const startTime = new Date();
   const sessionKey = process.env.SESSION_KEY1;
   if (!sessionKey) return null;
@@ -76,46 +69,103 @@ export async function getCountryScores(
   return parseResponse(response);
 }
 
-function notifyLinkedUsers(data: ParsedScoresResponse, previousFirstPlace: Score) {
-  const firstPlace = data.scores[0];
-  if (data.scores.length === 1) return;
+function getMessageOptionsFromScores(
+  content: string,
+  scores: ApiScore.default[]
+): MessageOptions | null {
+  if (scores.length === 0) return null;
+  const firstPlace = scores[0];
+  const { user, beatmap, statistics } = firstPlace;
+
+  const embed = new MessageEmbed();
+  embed.setAuthor(user.username, `https://a.ppy.sh/${user.id}`, `${OSU_URL}/users/${user.id}`);
+  embed.setTitle(`${beatmap.artist || 'Artist'} - ${beatmap.title || 'Title'} [${beatmap.version}] [${beatmap.difficulty_rating}★] [${beatmap.mode}]`);
+  embed.setURL(beatmap.url);
+  embed.setTimestamp(new Date(firstPlace.created_at));
+  embed.setThumbnail(`https://b.ppy.sh/thumb/${beatmap.beatmapset_id}l.jpg`);
+  embed.setColor(16777215);
+
+  const mods = firstPlace.mods.length > 0 ? `+${firstPlace.mods.join('')}` : '';
+  let statisticsText;
+
+  switch (firstPlace.mode_int) {
+    case Mode.mania:
+      statisticsText = `{ ${statistics.count_geki}/${statistics.count_300}/${statistics.count_katu}/${statistics.count_100}/${statistics.count_50}/${statistics.count_miss} }`;
+      break;
+    case Mode.ctb:
+      statisticsText = `{ ${statistics.count_300}/${statistics.count_100}/${statistics.count_katu}/${statistics.count_miss} }`;
+      break;
+    case Mode.taiko:
+      statisticsText = `{ ${statistics.count_300}/${statistics.count_100}/${statistics.count_miss} }`;
+      break;
+    default:
+      statisticsText = `{ ${statistics.count_300}/${statistics.count_100}/${statistics.count_50}/${statistics.count_miss} }`;
+      break;
+  }
+
+  embed.fields.push({
+    name: `[ ${firstPlace.rank} ] ${mods} ${firstPlace.score.toLocaleString()} (${(firstPlace.accuracy * 100).toFixed(2)}%)`,
+    value: `${firstPlace.pp.toFixed(2)}PP [ ${firstPlace.max_combo}x ] ${statisticsText}`,
+    inline: false
+  });
+
+  return {
+    content,
+    embed
+  };
+}
+
+function notifyLinkedUsers(scores: ApiScore.default[], previousFirstPlace: Score) {
+  const firstPlace = scores[0];
+  if (scores.length === 1) return;
   const { playerId } = previousFirstPlace;
-  if (playerId === firstPlace.id) return;
+  if (playerId === parseInt(firstPlace.user.id, 10)) return;
+  const messageOptions = getMessageOptionsFromScores(
+    `You were sniped by ${firstPlace.user.username}\nReact with :white_check_mark: to remove this message`,
+    scores
+  );
+  if (messageOptions === null) return;
 
   getMatchingLinkedUsers(playerId)?.forEach((localUser) => {
     getUser(localUser).then((user) => {
-      user?.send(
-        `You were sniped by ${firstPlace.u}\n${data.scoreData}\n${data.mapLink}\nReact with :white_check_mark: to remove this message`
-      ).catch((error) => console.error(error));
+      user?.send(messageOptions).catch((error) => console.error(error));
     }).catch((error) => console.error(error));
   });
 }
 
-export async function handleCountryScores(data: ParsedScoresResponse): Promise<string | null> {
-  const { beatmapId } = data;
-  const count = Math.min(10, data.scores.length);
+export async function handleCountryScores(
+  scores: ApiScore.default[]
+): Promise<MessageOptions | null> {
+  if (scores.length === 0) return null;
+  const firstPlace = scores[0];
+  const { beatmap, user } = firstPlace;
 
-  const firstPlace = data.scores[0];
-  const score = await getFirstPlaceForMap(beatmapId);
-  const message = `${firstPlace.u}\n${data.scoreData}\n${data.mapLink}`;
+  const count = Math.min(10, scores.length);
+  const score = await getFirstPlaceForMap(beatmap.id);
 
   if (!score) {
-    await publish(`New first place is ${message}`);
-    await bulkAddScoreRows(beatmapId, data.scores.slice(0, count));
+    const messageOptions = getMessageOptionsFromScores(`New first place is ${user.username}`, scores);
+    if (messageOptions === null) return null;
+
+    await publish(messageOptions);
+    await bulkAddScoreRows(beatmap.id, scores.slice(0, count));
     return null;
   }
 
-  await bulkAddScoreRows(beatmapId, data.scores.slice(0, count));
+  await bulkAddScoreRows(beatmap.id, scores.slice(0, count));
   const oldDate = score.date;
 
-  const mapWasSniped = await getMapWasSniped(beatmapId, oldDate, new Date(firstPlace.d));
+  const mapWasSniped = await getMapWasSniped(beatmap.id, oldDate, new Date(firstPlace.created_at));
   if (!mapWasSniped) {
-    return `First place is ${message}`;
+    return getMessageOptionsFromScores(`First place is ${user.username}`, scores);
   }
 
-  notifyLinkedUsers(data, score);
-  if (firstPlace.id === score.playerId) return null;
-  await publish(`${score.playerName} was sniped by ${message}`);
+  notifyLinkedUsers(scores, score);
+  if (parseInt(user.id, 10) === score.playerId) return null;
+
+  const messageOptions = getMessageOptionsFromScores(`${score.playerName} was sniped by ${user.username}`, scores);
+  if (messageOptions === null) return null;
+  await publish(messageOptions);
 
   return null;
 }
@@ -127,7 +177,7 @@ function finishCreatingDatabase() {
 
   const failedIdCount = getFailedIds().length;
   const failedMessage = failedIdCount > 0 ? `Failed to process ${failedIdCount} maps` : '';
-  return publish(`Done. ${failedMessage}`);
+  return publish({ content: `Done. ${failedMessage}` });
 }
 
 async function doRequest(index: number, idList: string[], startIndex: number, totalLength: number) {
@@ -144,13 +194,13 @@ async function doRequest(index: number, idList: string[], startIndex: number, to
       .catch((error) => console.error(error));
   });
 
-  let scores: ParsedScoresResponse | null = null;
+  let scores: ApiScore.default[] | null = null;
   try {
     // This will throw if the timer expires before we get our scores
     // so it will always be of type ParsedScoresResponse | null
     scores = await Promise.race(
       [sleep(21000), getCountryScores(beatmapId)]
-    ) as ParsedScoresResponse | null;
+    ) as ApiScore.default[] | null;
     tryUnsetFailedId(beatmapId);
   } catch (error) {
     console.error(error);
@@ -169,7 +219,8 @@ export async function createDatabase(
   startIndex = 0,
   rebuildFailed = false
 ): Promise<void> {
-  const messages = await publish(`Building: 0.00% (0 of ${ids.slice(startIndex).length})`);
+  const messageList = await publish({ content: `Building: 0.00% (0 of ${ids.slice(startIndex).length})` });
+  const messages = messageList.concat.apply([], messageList) as Message[];
 
   progressMessages = messages;
   shouldStop = false;

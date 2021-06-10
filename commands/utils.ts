@@ -6,7 +6,7 @@ import { getChannel } from '../services/discordService';
 import { getUser } from '../services/osuApiService';
 import { getLinkedUsers } from '../services/userLinkingService';
 
-const Mode: Record<string, number> = {
+export const Mode: Record<string, number> = {
   osu: 0,
   taiko: 1,
   ctb: 2,
