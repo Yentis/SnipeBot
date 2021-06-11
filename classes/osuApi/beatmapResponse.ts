@@ -11,6 +11,8 @@ export default class BeatmapResponse {
 
   version: string
 
+  'max_combo'?: number
+
   mode: string
 
   'approved_date': string

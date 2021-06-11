@@ -35,6 +35,7 @@ async function parseResponse(response: Response): Promise<ApiScore.default[] | n
     const score = scores[i];
     score.beatmap.artist = beatmapInfo?.artist;
     score.beatmap.title = beatmapInfo?.title;
+    score.beatmap.max_combo = beatmapInfo?.max_combo;
   }
 
   return scores;
@@ -86,6 +87,7 @@ function getMessageOptionsFromScores(
   embed.setColor(16777215);
 
   const mods = firstPlace.mods.length > 0 ? `+${firstPlace.mods.join('')}` : '';
+  const maxCombo = beatmap.max_combo ? `/${beatmap.max_combo}x` : '';
   let statisticsText;
 
   switch (firstPlace.mode_int) {
@@ -105,7 +107,7 @@ function getMessageOptionsFromScores(
 
   embed.fields.push({
     name: `[ ${firstPlace.rank} ] ${mods} ${firstPlace.score.toLocaleString()} (${(firstPlace.accuracy * 100).toFixed(2)}%)`,
-    value: `${firstPlace.pp.toFixed(2)}PP [ ${firstPlace.max_combo}x ] ${statisticsText}`,
+    value: `${firstPlace.pp.toFixed(2)}PP [ ${firstPlace.max_combo}x${maxCombo} ] ${statisticsText}`,
     inline: false
   });
 

@@ -9,6 +9,8 @@ export default class Beatmap {
 
   title?: string
 
+  'max_combo'?: number
+
   version: string
 
   mode: string
