@@ -88,6 +88,7 @@ function getMessageOptionsFromScores(
 
   const mods = firstPlace.mods.length > 0 ? `+${firstPlace.mods.join('')}` : '';
   const maxCombo = beatmap.max_combo ? `/${beatmap.max_combo}x` : '';
+  const pp = firstPlace.pp !== null ? `${firstPlace.pp.toFixed(2)}PP ` : '';
   let statisticsText;
 
   switch (firstPlace.mode_int) {
@@ -107,7 +108,7 @@ function getMessageOptionsFromScores(
 
   embed.fields.push({
     name: `[ ${firstPlace.rank} ] ${mods} ${firstPlace.score.toLocaleString()} (${(firstPlace.accuracy * 100).toFixed(2)}%)`,
-    value: `${firstPlace.pp.toFixed(2)}PP [ ${firstPlace.max_combo}x${maxCombo} ] ${statisticsText}`,
+    value: `${pp}[ ${firstPlace.max_combo}x${maxCombo} ] ${statisticsText}`,
     inline: false
   });
 

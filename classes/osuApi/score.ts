@@ -16,7 +16,7 @@ export default class Score {
 
   'max_combo': number
 
-  pp: number
+  pp: number | null
 
   statistics: Statistics
 
