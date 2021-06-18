@@ -14,6 +14,7 @@ import { generateHtmlForMaps } from '../services/htmlService';
 import { getUser } from '../services/osuApiService';
 import { getFirstPlacesForPlayer, getMapsWithNoScores } from '../services/databaseService';
 import LocalUser from '../classes/localUser';
+import { replyToInteraction, replyToInteractionApi } from './manager';
 
 async function countThroughMapIds(user: LocalUser | null, mode: number) {
   const userId = user ? parseInt(user.userId, 10) : null;
@@ -53,11 +54,11 @@ async function sendReply(
   const mode = getModeFromOptions(options);
   const list = await countThroughMapIds(user, mode);
   if (list.amount === 0) {
-    await interaction.reply(emptyResponseText);
+    await replyToInteraction(interaction, emptyResponseText);
     return;
   }
 
-  await interaction.reply(new APIMessage(channel, {
+  await replyToInteractionApi(interaction, new APIMessage(channel, {
     content: `${responseText} (${list.amount} maps):`,
     split: false,
     files: [{ attachment: Buffer.from(list.list), name: filename }]
@@ -83,7 +84,7 @@ export default async function run(interaction: CommandInteraction): Promise<void
   const user = targetUser !== null ? await getUser(targetUser) : await tryGetUser(interaction.user);
 
   if (user === null) {
-    await interaction.reply('User not found', { ephemeral: true });
+    await replyToInteraction(interaction, 'User not found', { ephemeral: true });
     return;
   }
 

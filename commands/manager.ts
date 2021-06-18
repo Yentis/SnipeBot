@@ -1,5 +1,6 @@
 import {
-  ApplicationCommandData, CommandInteraction, DMChannel
+  APIMessage,
+  ApplicationCommandData, CommandInteraction, DMChannel, InteractionReplyOptions
 } from 'discord.js';
 import { getLinkedChannels } from '../services/settingsService';
 import Command from '../enums/command';
@@ -34,14 +35,21 @@ export default async function handleCommand(
   }
   if (interaction === undefined) return;
 
+  // Defer after 2 seconds
+  const timeout = setTimeout(() => {
+    interaction.defer().catch((error) => console.error(error));
+  }, 2000);
+
   // These commands are always available
   if (command === Command.ECHO) {
     await onEcho(interaction);
+    clearTimeout(timeout);
     return;
   }
 
   if (command === Command.LINKCHANNEL) {
     await onLinkChannel(interaction);
+    clearTimeout(timeout);
     return;
   }
 
@@ -51,6 +59,7 @@ export default async function handleCommand(
 
   if (channel === null) {
     await replyWithInvalidChannel(interaction);
+    clearTimeout(timeout);
     return;
   }
 
@@ -59,6 +68,7 @@ export default async function handleCommand(
     && !getLinkedChannels().includes(channel.id)
   ) {
     await replyWithInvalidChannel(interaction);
+    clearTimeout(timeout);
     return;
   }
 
@@ -106,6 +116,8 @@ export default async function handleCommand(
     default:
       break;
   }
+
+  clearTimeout(timeout);
 }
 
 function getUsernameOption() {
@@ -255,4 +267,30 @@ export function getCommandData(): Array<ApplicationCommandData> {
   });
 
   return commands;
+}
+
+export async function replyToInteraction(
+  interaction: CommandInteraction,
+  content: string,
+  options?: InteractionReplyOptions
+): Promise<unknown> {
+  if (interaction.deferred) {
+    if (options?.ephemeral === true) {
+      await interaction.deleteReply();
+    }
+    return interaction.followUp(content, options);
+  }
+
+  return interaction.reply(content, options);
+}
+
+export async function replyToInteractionApi(
+  interaction: CommandInteraction,
+  message: APIMessage
+): Promise<unknown> {
+  if (interaction.deferred) {
+    return interaction.followUp(message);
+  }
+
+  return interaction.reply(message);
 }

@@ -5,6 +5,7 @@ import LocalUser from '../classes/localUser';
 import { getChannel } from '../services/discordService';
 import { getUser } from '../services/osuApiService';
 import { getLinkedUsers } from '../services/userLinkingService';
+import { replyToInteraction } from './manager';
 
 export const Mode: Record<string, number> = {
   osu: 0,
@@ -70,11 +71,11 @@ export function isOwner(id: string): boolean {
 }
 
 export async function replyWithInvalidChannel(interaction: CommandInteraction): Promise<void> {
-  await interaction.reply('Invalid channel', { ephemeral: true });
+  await replyToInteraction(interaction, 'Invalid channel', { ephemeral: true });
 }
 
 export async function replyWithNoPermission(interaction: CommandInteraction): Promise<void> {
-  await interaction.reply('Sorry, you\'re too young to use this command', { ephemeral: true });
+  await replyToInteraction(interaction, 'Sorry, you\'re too young to use this command', { ephemeral: true });
 }
 
 export async function getOrCreateDMChannel(

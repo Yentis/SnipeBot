@@ -1,5 +1,6 @@
 import { CommandInteraction } from 'discord.js';
 import { stopBuilding } from '../services/buildService';
+import { replyToInteraction } from './manager';
 import { isOwner, replyWithNoPermission } from './utils';
 
 export default async function run(interaction: CommandInteraction): Promise<void> {
@@ -9,5 +10,5 @@ export default async function run(interaction: CommandInteraction): Promise<void
   }
 
   stopBuilding();
-  await interaction.reply('Rebuild stopped', { ephemeral: true });
+  await replyToInteraction(interaction, 'Rebuild stopped', { ephemeral: true });
 }

@@ -1,6 +1,7 @@
 import {
   CommandInteraction, DMChannel, TextChannel
 } from 'discord.js';
+import { replyToInteraction } from './manager';
 import {
   getOrCreateDMChannel,
   isMod, isOwner, replyWithInvalidChannel, replyWithNoPermission
@@ -24,6 +25,6 @@ export default async function run(interaction: CommandInteraction): Promise<void
     return;
   }
 
-  await interaction.reply('Done!', { ephemeral: true });
+  await replyToInteraction(interaction, 'Done!', { ephemeral: true });
   await channel.send(content);
 }

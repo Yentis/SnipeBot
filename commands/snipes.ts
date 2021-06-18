@@ -14,6 +14,7 @@ import { getMapsForPlayer } from '../services/databaseService';
 import LocalUser from '../classes/localUser';
 import Beatmap from '../classes/database/beatmap';
 import Score from '../classes/database/score';
+import { replyToInteraction, replyToInteractionApi } from './manager';
 
 function wasFirstPlace(scores: Score[], playerId: number): boolean {
   let highestScore = scores[0];
@@ -78,7 +79,7 @@ export default async function run(interaction: CommandInteraction): Promise<void
   const user = targetUser !== null ? await getUser(targetUser) : await tryGetUser(interaction.user);
 
   if (user === null) {
-    await interaction.reply('User was not found');
+    await replyToInteraction(interaction, 'User was not found');
     return;
   }
 
@@ -87,11 +88,11 @@ export default async function run(interaction: CommandInteraction): Promise<void
   const result = getListOfSnipedScores(maps, user);
 
   if (result.amount === 0) {
-    await interaction.reply(`${user.username} is not currently sniped on any scores`);
+    await replyToInteraction(interaction, `${user.username} is not currently sniped on any scores`);
     return;
   }
 
-  await interaction.reply(new APIMessage(channel, {
+  await replyToInteractionApi(interaction, new APIMessage(channel, {
     content: `Here are all the maps ${user.username} has been sniped on (${result.amount} maps):`,
     split: false,
     files: [{ attachment: Buffer.from(result.list), name: `Snipes ${user.username}.html` }]

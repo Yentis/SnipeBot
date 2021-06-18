@@ -9,6 +9,7 @@ import {
 import { getUser } from '../services/osuApiService';
 import { getFirstPlacesForPlayer, getMapsWithNoScores } from '../services/databaseService';
 import LocalUser from '../classes/localUser';
+import { replyToInteraction } from './manager';
 
 async function countThroughMapIds(user: LocalUser | null, mode: number) {
   const userId = user ? parseInt(user.userId, 10) : null;
@@ -34,11 +35,11 @@ async function sendReply(
   const mode = getModeFromOptions(options);
   const count = await countThroughMapIds(user, mode);
   if (count === 0) {
-    await interaction.reply(emptyResponseText);
+    await replyToInteraction(interaction, emptyResponseText);
     return;
   }
 
-  await interaction.reply(responseText(count));
+  await replyToInteraction(interaction, responseText(count));
 }
 
 export default async function run(interaction: CommandInteraction): Promise<void> {
@@ -59,7 +60,7 @@ export default async function run(interaction: CommandInteraction): Promise<void
   const user = targetUser !== null ? await getUser(targetUser) : await tryGetUser(interaction.user);
 
   if (user === null) {
-    await interaction.reply('User not found', { ephemeral: true });
+    await replyToInteraction(interaction, 'User not found', { ephemeral: true });
     return;
   }
 

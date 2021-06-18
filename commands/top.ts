@@ -1,5 +1,6 @@
 import { CommandInteraction } from 'discord.js';
 import { getFirstPlaceTop } from '../services/databaseService';
+import { replyToInteraction } from './manager';
 import { getModeFromOptions } from './utils';
 
 async function getRankings(size: number, mode: number) {
@@ -16,6 +17,6 @@ export default async function run(interaction: CommandInteraction): Promise<void
   const mode = getModeFromOptions(interaction.options);
   const results = await getRankings(topCount, mode);
 
-  if (results !== '') await interaction.reply(results);
-  else await interaction.reply('No users found');
+  if (results !== '') await replyToInteraction(interaction, results);
+  else await replyToInteraction(interaction, 'No users found');
 }

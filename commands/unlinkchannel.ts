@@ -1,5 +1,6 @@
 import { CommandInteraction } from 'discord.js';
 import { removeLinkedChannel } from '../services/settingsService';
+import { replyToInteraction } from './manager';
 import {
   isMod, replyWithInvalidChannel, replyWithNoPermission
 } from './utils';
@@ -16,6 +17,6 @@ export default async function run(interaction: CommandInteraction): Promise<void
   }
 
   const removed = removeLinkedChannel(interaction.channel.id);
-  if (removed) await interaction.reply('This channel was unlinked', { ephemeral: true });
-  else await interaction.reply('This channel is not linked', { ephemeral: true });
+  if (removed) await replyToInteraction(interaction, 'This channel was unlinked', { ephemeral: true });
+  else await replyToInteraction(interaction, 'This channel is not linked', { ephemeral: true });
 }

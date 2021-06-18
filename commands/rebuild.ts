@@ -3,6 +3,7 @@ import { getMapIds } from '../services/databaseService';
 import { clearFailedIds, setCurrentMapIndex } from '../services/settingsService';
 import { isOwner, replyWithNoPermission } from './utils';
 import { createDatabase } from '../services/buildService';
+import { replyToInteraction } from './manager';
 
 export default async function run(interaction: CommandInteraction): Promise<void> {
   if (!isOwner(interaction.user.id)) {
@@ -14,6 +15,6 @@ export default async function run(interaction: CommandInteraction): Promise<void
   clearFailedIds();
   const mapIds = await getMapIds();
 
-  await interaction.reply('Rebuild started', { ephemeral: true });
+  await replyToInteraction(interaction, 'Rebuild started', { ephemeral: true });
   await createDatabase(mapIds);
 }

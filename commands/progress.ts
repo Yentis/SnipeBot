@@ -1,5 +1,6 @@
 import { CommandInteraction } from 'discord.js';
 import { getProgressMessage } from '../services/buildService';
+import { replyToInteraction } from './manager';
 import { replyWithInvalidChannel } from './utils';
 
 export default async function run(interaction: CommandInteraction): Promise<void> {
@@ -10,17 +11,15 @@ export default async function run(interaction: CommandInteraction): Promise<void
 
   const progressMessage = getProgressMessage(interaction.channel.id);
   if (progressMessage === null) {
-    await interaction.reply('Currently not rebuilding');
+    await replyToInteraction(interaction, 'Currently not rebuilding');
     return;
   }
 
   const guildId = progressMessage.guild?.id;
   if (guildId === undefined) {
-    await interaction.reply('Could not find server belonging to progress message', { ephemeral: true });
+    await replyToInteraction(interaction, 'Could not find server belonging to progress message', { ephemeral: true });
     return;
   }
 
-  await interaction.reply(
-    `https://discordapp.com/channels/${guildId}/${progressMessage.channel.id}/${progressMessage.id}`
-  );
+  await replyToInteraction(interaction, `https://discordapp.com/channels/${guildId}/${progressMessage.channel.id}/${progressMessage.id}`);
 }
