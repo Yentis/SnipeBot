@@ -4,7 +4,7 @@ import ScoresResponse from '../classes/osuApi/scoresResponse';
 import {
   getFirstPlaceForMap, bulkAddScoreRows, getMapWasSniped, getMapCount
 } from './databaseService';
-import { publish, getUser } from './discordService';
+import { publish, getUser, setActivity } from './discordService';
 import { getMatchingLinkedUsers } from './userLinkingService';
 import {
   getFailedIds, saveSettings, setCurrentMapIndex, setFailedId, tryUnsetFailedId
@@ -180,6 +180,7 @@ function finishCreatingDatabase() {
 
   const failedIdCount = getFailedIds().length;
   const failedMessage = failedIdCount > 0 ? `Failed to process ${failedIdCount} maps` : '';
+  setActivity();
   return publish({ content: `Done. ${failedMessage}` });
 }
 
@@ -192,10 +193,12 @@ async function doRequest(index: number, idList: string[], startIndex: number, to
   console.info(`Processing ${beatmapId} | ${offsetIndex} of ${totalLength}`);
 
   const progress = ((offsetIndex / totalLength) * 100).toFixed(2);
+  const progressText = `Building: ${progress}% (${offsetIndex} of ${totalLength}) | ${failedIds.length} failed.`;
   progressMessages.forEach((message) => {
-    message.edit(`Building: ${progress}% (${offsetIndex} of ${totalLength}) | ${failedIds.length} failed.`)
+    message.edit(progressText)
       .catch((error) => console.error(error));
   });
+  setActivity({ type: 'WATCHING', name: `${progress}%` });
 
   let scores: ApiScore.default[] | null = null;
   try {

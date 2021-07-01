@@ -1,4 +1,6 @@
 import {
+  ActivitiesOptions,
+  ActivityOptions,
   Channel,
   Client, DMChannel, Intents, Message, MessageOptions, NewsChannel, TextChannel, User
 } from 'discord.js';
@@ -9,6 +11,11 @@ import Command from '../enums/command';
 import { tryGetBeatmapFromMessage } from '../commands/utils';
 import { createDatabase, getCountryScores, handleCountryScores } from './buildService';
 import { getMapIds } from './databaseService';
+
+const DEFAULT_ACTIVITY: ActivitiesOptions = {
+  type: 'WATCHING',
+  name: 'you miss'
+};
 
 const bot = new Client({
   allowedMentions: {
@@ -21,10 +28,7 @@ const bot = new Client({
     Intents.FLAGS.DIRECT_MESSAGE_REACTIONS
   ],
   presence: {
-    activities: [{
-      type: 'WATCHING',
-      name: 'you miss'
-    }]
+    activities: [DEFAULT_ACTIVITY]
   }
 });
 
@@ -120,4 +124,8 @@ export async function login(): Promise<void> {
   if (!botToken) throw Error('BOT_TOKEN environment variable not defined!');
 
   await bot.login(botToken);
+}
+
+export function setActivity(options: ActivityOptions = DEFAULT_ACTIVITY): void {
+  bot.user?.setActivity(options);
 }
