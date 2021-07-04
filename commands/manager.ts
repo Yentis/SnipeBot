@@ -35,10 +35,10 @@ export default async function handleCommand(
   }
   if (interaction === undefined) return;
 
-  // Defer after 2 seconds
+  // Defer after 1.5 seconds
   const timeout = setTimeout(() => {
     interaction.defer().catch((error) => console.error(error));
-  }, 2000);
+  }, 1500);
 
   // These commands are always available
   if (command === Command.ECHO) {
@@ -106,12 +106,11 @@ export default async function handleCommand(
     case Command.PROGRESS:
       await onProgress(interaction);
       break;
-    // Don't wait for these commands to finish, so the typing indicator doesn't linger
     case Command.REBUILD:
-      onRebuild(interaction).catch((error) => console.error(error));
+      await onRebuild(interaction);
       break;
     case Command.REBUILDFAILED:
-      onRebuildFailed(interaction).catch((error) => console.error(error));
+      await onRebuildFailed(interaction);
       break;
     default:
       break;
