@@ -14,7 +14,6 @@ export const Mode: Record<string, number> = {
   mania: 3
 };
 const OWNER_ID = 68834122860077056;
-const MAP_REGEX = /^https:\/\/osu.ppy.sh\/b\/[0-9]*$/;
 
 export async function tryGetUser(user: User): Promise<LocalUser | null> {
   const userId = getLinkedUsers()[user.id];
@@ -54,8 +53,8 @@ export function tryGetBeatmapFromMessage(message: Message, botId: string | null)
   if (message.embeds.length === 0) return null;
 
   const url = message.embeds[0]?.url;
-  if (!url) return null;
-  if (!MAP_REGEX.exec(url)) return null;
+  if (!url || !url.includes('osu.ppy.sh')) return null;
+  if (!url.includes('/b/') && !url.includes('/beatmaps/')) return null;
 
   const split = url.split('/');
   return split[split.length - 1];

@@ -5,7 +5,7 @@ import {
   Client, DMChannel, Intents, Message, MessageOptions, NewsChannel, TextChannel, User
 } from 'discord.js';
 import RawEvent from '../interfaces/rawEvent';
-import { getLinkedChannels, getCurrentMapIndex, COMMAND_PREFIX } from './settingsService';
+import { getLinkedChannels, getCurrentMapIndex } from './settingsService';
 import handleCommand, { getCommandData } from '../commands/manager';
 import Command from '../enums/command';
 import { tryGetBeatmapFromMessage } from '../commands/utils';
