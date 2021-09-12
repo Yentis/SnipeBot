@@ -11,7 +11,8 @@ async function deleteMessageFromChannel(channel: DMChannel, messageId: string) {
 export default async function run(event: RawEvent): Promise<void> {
   const reaction = event.d;
 
-  if (reaction.emoji.id || reaction.emoji.name !== '✅') return;
+  if (reaction.emoji.id) return;
+  if (reaction.emoji.name !== '✅' && reaction.emoji.name !== '☑️' && reaction.emoji.name !== '✔️') return;
   if (reaction.user_id === getBotId()) return;
 
   const user = await getUser(reaction.user_id);

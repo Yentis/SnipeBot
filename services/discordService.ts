@@ -54,7 +54,7 @@ bot.on('interaction', (interaction) => {
 
   const { commandName } = interaction;
   const command: Command | undefined = Command[commandName.toUpperCase() as keyof typeof Command];
-  if (!command) return;
+  if (command === undefined) return;
 
   handleCommand(command, interaction).catch((error) => console.error(error));
 });

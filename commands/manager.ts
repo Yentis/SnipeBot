@@ -1,6 +1,6 @@
 import {
   APIMessage,
-  ApplicationCommandData, CommandInteraction, DMChannel, InteractionReplyOptions
+  ApplicationCommandData, ApplicationCommandOptionData, CommandInteraction, DMChannel, InteractionReplyOptions
 } from 'discord.js';
 import { getLinkedChannels } from '../services/settingsService';
 import Command from '../enums/command';
@@ -119,7 +119,7 @@ export default async function handleCommand(
   clearTimeout(timeout);
 }
 
-function getUsernameOption() {
+function getUsernameOption(): ApplicationCommandOptionData {
   return {
     name: 'username',
     type: 'STRING',
@@ -127,16 +127,29 @@ function getUsernameOption() {
   };
 }
 
-function getModeOption() {
+function getModeOption(): ApplicationCommandOptionData {
   return {
     name: 'mode',
     type: 'STRING',
-    description: 'The mode to retrieve scores for'
+    description: 'The mode to retrieve scores for',
+    choices: [{
+      name: 'osu!',
+      value: 'osu'
+    }, {
+      name: 'osu!taiko',
+      value: 'taiko'
+    }, {
+      name: 'osu!catch',
+      value: 'ctb'
+    }, {
+      name: 'osu!mania',
+      value: 'mania'
+    }]
   };
 }
 
 export function getCommandData(): Array<ApplicationCommandData> {
-  const commands = [];
+  const commands: ApplicationCommandData[] = [];
 
   commands.push({
     name: Command[Command.ECHO].toLowerCase(),
