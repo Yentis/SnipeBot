@@ -1,8 +1,8 @@
-import Beatmap from './beatmap';
+import BeatmapResponse from './beatmapResponse';
 import Statistics from './statistics';
 
 export default class Score {
-  beatmap: Beatmap
+  beatmap: BeatmapResponse | null
 
   'mode_int': number
 
@@ -25,7 +25,7 @@ export default class Score {
   'created_at': string
 
   constructor(
-    beatmap: Beatmap,
+    beatmap: BeatmapResponse,
     score: number,
     rank: string,
     accuracy: number,

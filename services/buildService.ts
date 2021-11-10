@@ -11,7 +11,7 @@ import {
 } from './settingsService';
 import Score from '../classes/database/score';
 import * as ApiScore from '../classes/osuApi/score';
-import { getBeatmapInfo } from './osuApiService';
+import { getBeatmapInfo, MODES } from './osuApiService';
 import { Mode } from '../commands/utils';
 
 export const OSU_URL = 'https://osu.ppy.sh';
@@ -24,18 +24,19 @@ function sleep(time: number) {
   return new Promise((_resolve, reject) => setTimeout(reject, time));
 }
 
-async function parseResponse(response: Response): Promise<ApiScore.default[] | null> {
+async function parseResponse(
+  response: Response,
+  beatmapId: string
+): Promise<ApiScore.default[] | null> {
   if (response.status === 404) return null;
 
   const { scores } = await response.json() as ScoresResponse;
   if (scores.length === 0) return null;
 
-  const beatmapInfo = await getBeatmapInfo(scores[0].beatmap.id.toString());
+  const beatmapInfo = await getBeatmapInfo(beatmapId);
   for (let i = 0; i < scores.length; i += 1) {
     const score = scores[i];
-    score.beatmap.artist = beatmapInfo?.artist;
-    score.beatmap.title = beatmapInfo?.title;
-    score.beatmap.max_combo = beatmapInfo?.max_combo;
+    score.beatmap = beatmapInfo;
   }
 
   return scores;
@@ -67,7 +68,7 @@ export async function getCountryScores(
   if (requestError) throw requestError;
   if (!response) return null;
 
-  return parseResponse(response);
+  return parseResponse(response, beatmapId);
 }
 
 function getMessageOptionsFromScores(
@@ -78,16 +79,25 @@ function getMessageOptionsFromScores(
   const firstPlace = scores[0];
   const { user, beatmap, statistics } = firstPlace;
 
+  const artist = beatmap?.artist || 'Artist';
+  const title = beatmap?.title || 'Title';
+  const version = beatmap?.version || 'Version';
+  const difficultyRating = parseFloat(beatmap?.difficultyrating || '0').toFixed(2);
+  const mode = MODES[parseInt(beatmap?.mode || '0', 10)];
+
   const embed = new MessageEmbed();
   embed.setAuthor(user.username, `https://a.ppy.sh/${user.id}`, `${OSU_URL}/users/${user.id}`);
-  embed.setTitle(`${beatmap.artist || 'Artist'} - ${beatmap.title || 'Title'} [${beatmap.version}] [${beatmap.difficulty_rating}★] [${beatmap.mode}]`);
-  embed.setURL(beatmap.url);
+  embed.setTitle(`${artist} - ${title} [${version}] [${difficultyRating}★] [${mode}]`);
   embed.setTimestamp(new Date(firstPlace.created_at));
-  embed.setThumbnail(`https://b.ppy.sh/thumb/${beatmap.beatmapset_id}l.jpg`);
   embed.setColor(16777215);
 
+  if (beatmap) {
+    embed.setURL(`https://osu.ppy.sh/b/${beatmap.beatmap_id}`);
+    embed.setThumbnail(`https://b.ppy.sh/thumb/${beatmap.beatmapset_id}l.jpg`);
+  }
+
   const mods = firstPlace.mods.length > 0 ? `+${firstPlace.mods.join('')}` : '';
-  const maxCombo = beatmap.max_combo ? `/${beatmap.max_combo}x` : '';
+  const maxCombo = beatmap?.max_combo ? `/${beatmap.max_combo}x` : '';
   const pp = firstPlace.pp !== null ? `${firstPlace.pp.toFixed(2)}PP ` : '';
   let statisticsText;
 
@@ -144,21 +154,23 @@ export async function handleCountryScores(
   const { beatmap, user } = firstPlace;
 
   const count = Math.min(10, scores.length);
-  const score = await getFirstPlaceForMap(beatmap.id);
+  const beatmapId = beatmap ? parseInt(beatmap.beatmap_id, 10) : undefined;
+  if (!beatmapId) return null;
+  const score = await getFirstPlaceForMap(beatmapId);
 
   if (!score) {
     const messageOptions = getMessageOptionsFromScores(`New first place is ${user.username}`, scores);
     if (messageOptions === null) return null;
 
     await publish(messageOptions);
-    await bulkAddScoreRows(beatmap.id, scores.slice(0, count));
+    await bulkAddScoreRows(beatmapId, scores.slice(0, count));
     return null;
   }
 
-  await bulkAddScoreRows(beatmap.id, scores.slice(0, count));
+  await bulkAddScoreRows(beatmapId, scores.slice(0, count));
   const oldDate = score.date;
 
-  const mapWasSniped = await getMapWasSniped(beatmap.id, oldDate, new Date(firstPlace.created_at));
+  const mapWasSniped = await getMapWasSniped(beatmapId, oldDate, new Date(firstPlace.created_at));
   if (!mapWasSniped) {
     return getMessageOptionsFromScores(`First place is ${user.username}`, scores);
   }

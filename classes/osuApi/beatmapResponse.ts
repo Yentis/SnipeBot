@@ -1,19 +1,21 @@
 export default class BeatmapResponse {
-  approved: string
-
   'beatmap_id': string
 
-  artist: string
+  'beatmapset_id': number
 
   difficultyrating: string
 
-  title: string
+  artist: string
 
-  version: string
+  title: string
 
   'max_combo'?: number
 
+  version: string
+
   mode: string
+
+  approved: string
 
   'approved_date': string
 

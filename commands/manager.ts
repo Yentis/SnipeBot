@@ -1,6 +1,10 @@
 import {
   APIMessage,
-  ApplicationCommandData, ApplicationCommandOptionData, CommandInteraction, DMChannel, InteractionReplyOptions
+  ApplicationCommandData,
+  ApplicationCommandOptionData,
+  CommandInteraction,
+  DMChannel,
+  InteractionReplyOptions
 } from 'discord.js';
 import { getLinkedChannels } from '../services/settingsService';
 import Command from '../enums/command';

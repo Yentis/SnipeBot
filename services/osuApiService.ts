@@ -9,6 +9,7 @@ import {
 } from './databaseService';
 import { downloadFile, uploadFile } from './dropboxService';
 
+export const MODES = ['osu!', 'osu!taiko', 'osu!catch', 'osu!mania'];
 const CACHED_USERS_FILE = 'cachedUsers.json';
 const API_URL = `${OSU_URL}/api`;
 
