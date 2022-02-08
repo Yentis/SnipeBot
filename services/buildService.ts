@@ -2,7 +2,7 @@ import fetch, { Response } from 'node-fetch';
 import { Message, MessageEmbed, MessageOptions } from 'discord.js';
 import ScoresResponse from '../classes/osuApi/scoresResponse';
 import {
-  getFirstPlaceForMap, bulkAddScoreRows, getMapWasSniped, getMapCount
+  getFirstPlaceForMap, bulkAddScoreRows, getMapWasSniped, getMapCount, bulkAddBeatmapRows
 } from './databaseService';
 import { publish, getUser, setActivity } from './discordService';
 import { getMatchingLinkedUsers } from './userLinkingService';
@@ -156,8 +156,13 @@ export async function handleCountryScores(
   const count = Math.min(10, scores.length);
   const beatmapId = beatmap ? parseInt(beatmap.beatmap_id, 10) : undefined;
   if (!beatmapId) return null;
-  const score = await getFirstPlaceForMap(beatmapId);
 
+  const entry = await getFirstPlaceForMap(beatmapId);
+  if (!entry && beatmap) {
+    await bulkAddBeatmapRows([beatmap]);
+  }
+
+  const score = entry?.firstPlace;
   if (!score) {
     const messageOptions = getMessageOptionsFromScores(`New first place is ${user.username}`, scores);
     if (messageOptions === null) return null;

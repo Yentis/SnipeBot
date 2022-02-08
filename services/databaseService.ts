@@ -156,13 +156,13 @@ export function getMapCount(): Promise<number> {
   return client.db().collection(BEATMAPS).countDocuments();
 }
 
-export async function getFirstPlaceForMap(mapId: number): Promise<Score | null> {
+export async function getFirstPlaceForMap(mapId: number): Promise<{ firstPlace: Score } | null> {
   const results = await client.db().collection(BEATMAPS).find({ _id: mapId.toString() })
     .project({ _id: 0, firstPlace: 1 })
     .toArray() as { firstPlace: Score }[];
 
-  if (results.length === 0 || !results[0].firstPlace) return null;
-  return results[0].firstPlace;
+  if (results.length === 0) return null;
+  return results[0];
 }
 
 export function bulkAddScoreRows(mapId: number, scores: ApiScore.default[]): Promise<void> {
