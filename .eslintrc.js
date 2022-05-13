@@ -7,7 +7,7 @@ module.exports = {
   extends: [
     'plugin:@typescript-eslint/recommended',
     'plugin:@typescript-eslint/recommended-requiring-type-checking',
-    'airbnb-base'
+    'standard'
   ],
   parser: '@typescript-eslint/parser',
   parserOptions: {
@@ -23,6 +23,10 @@ module.exports = {
     'comma-dangle': 'off',
     'import/extensions': 'off',
     'no-console': 'off',
+    'linebreak-style': 'off',
+    'arrow-body-style': 'off',
+    'semi': ['error', 'always'],
+    'space-before-function-paren': 'off',
     '@typescript-eslint/no-floating-promises': ['error']
   },
   settings: {

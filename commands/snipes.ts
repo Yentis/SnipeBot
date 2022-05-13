@@ -1,5 +1,5 @@
 import {
-  APIMessage, CommandInteraction, DMChannel, TextChannel
+  CommandInteraction, DMChannel, TextChannel
 } from 'discord.js';
 import {
   getModeFromOptions,
@@ -23,8 +23,8 @@ function wasFirstPlace(scores: Score[], playerId: number): boolean {
 
   scores.forEach((score) => {
     if (
-      score.score > highestScore.score
-      || (score.score === highestScore.score && score.date < highestScore.date)
+      Score.getScore(score) > Score.getScore(highestScore) ||
+      (score.score === highestScore.score && score.date < highestScore.date)
     ) {
       highestScore = score;
     }
@@ -37,7 +37,7 @@ function wasFirstPlace(scores: Score[], playerId: number): boolean {
   if (highestScore.playerId === playerId) return false;
 
   scores.forEach((score) => {
-    if (score.date < playerScore.date && score.score >= playerScore.score) result = false;
+    if (score.date < playerScore.date && Score.getScore(score) >= Score.getScore(playerScore)) result = false;
   });
 
   return result;
@@ -64,37 +64,36 @@ function getListOfSnipedScores(maps: Beatmap[], user: LocalUser) {
 }
 
 export default async function run(interaction: CommandInteraction): Promise<void> {
-  const channel = interaction.channel
-    || await getOrCreateDMChannel(interaction.channelID, interaction.user);
+  const channel = interaction.channel ||
+    await getOrCreateDMChannel(interaction.channelId, interaction.user);
 
   if (
-    !(channel instanceof TextChannel)
-    && !(channel instanceof DMChannel)
+    !(channel instanceof TextChannel) &&
+    !(channel instanceof DMChannel)
   ) {
     await replyWithInvalidChannel(interaction);
     return;
   }
 
-  const targetUser = getUsernameFromOptions(interaction.options);
+  const targetUser = getUsernameFromOptions(interaction);
   const user = targetUser !== null ? await getUser(targetUser) : await tryGetUser(interaction.user);
 
   if (user === null) {
-    await replyToInteraction(interaction, 'User was not found');
+    await replyToInteraction(interaction, { content: 'User was not found' });
     return;
   }
 
-  const mode = getModeFromOptions(interaction.options);
+  const mode = getModeFromOptions(interaction);
   const maps = await getMapsForPlayer(user.userId, mode);
   const result = getListOfSnipedScores(maps, user);
 
   if (result.amount === 0) {
-    await replyToInteraction(interaction, `${user.username} is not currently sniped on any scores`);
+    await replyToInteraction(interaction, { content: `${user.username} is not currently sniped on any scores` });
     return;
   }
 
-  await replyToInteractionApi(interaction, new APIMessage(channel, {
+  await replyToInteractionApi(interaction, {
     content: `Here are all the maps ${user.username} has been sniped on (${result.amount} maps):`,
-    split: false,
     files: [{ attachment: Buffer.from(result.list), name: `Snipes ${user.username}.html` }]
-  }));
+  });
 }

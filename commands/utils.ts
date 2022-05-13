@@ -1,7 +1,12 @@
 import {
-  CommandInteraction, CommandInteractionOption, DMChannel, GuildMember, Message, User
+  CommandInteraction,
+  DMChannel,
+  GuildMember,
+  Message,
+  User
 } from 'discord.js';
 import LocalUser from '../classes/localUser';
+import { GeneralOptions } from '../enums/command';
 import { getChannel } from '../services/discordService';
 import { getUser } from '../services/osuApiService';
 import { getLinkedUsers } from '../services/userLinkingService';
@@ -22,30 +27,18 @@ export async function tryGetUser(user: User): Promise<LocalUser | null> {
   return getUser(user.username);
 }
 
-export function getUsernameFromOptions(options: Array<CommandInteractionOption>): string | null {
-  const username = options.find((option) => option.name === 'username')?.value;
-  if (typeof username !== 'string') return null;
+export function getUsernameFromOptions(interaction: CommandInteraction): string | null {
+  const username = interaction.options.getString(GeneralOptions.username.name);
+  if (!username) return null;
 
   return username;
 }
 
-export function getModeFromOptions(options: Array<CommandInteractionOption>): number {
-  const mode = options.find((option) => option.name === 'mode')?.value;
-  if (typeof mode !== 'string') return 0;
+export function getModeFromOptions(interaction: CommandInteraction): number {
+  const mode = interaction.options.getString(GeneralOptions.mode.name);
+  if (!mode) return 0;
 
   return Mode[mode] || 0;
-}
-
-export function getUnclaimedFromOptions(
-  options: Array<CommandInteractionOption>
-): CommandInteractionOption | undefined {
-  return options.find((option) => option.name === 'unclaimed');
-}
-
-export function getUserFromOptions(
-  options: Array<CommandInteractionOption>
-): CommandInteractionOption | undefined {
-  return options.find((option) => option.name === 'user');
 }
 
 export function tryGetBeatmapFromMessage(message: Message, botId: string | null): string | null {
@@ -57,7 +50,7 @@ export function tryGetBeatmapFromMessage(message: Message, botId: string | null)
   if (!url.includes('/b/') && !url.includes('/beatmaps/')) return null;
 
   const split = url.split('/');
-  return split[split.length - 1];
+  return split[split.length - 1].replace('/', '');
 }
 
 export function isMod(member: unknown): boolean {
@@ -70,11 +63,11 @@ export function isOwner(id: string): boolean {
 }
 
 export async function replyWithInvalidChannel(interaction: CommandInteraction): Promise<void> {
-  await replyToInteraction(interaction, 'Invalid channel', { ephemeral: true });
+  await replyToInteraction(interaction, { content: 'Invalid channel', ephemeral: true });
 }
 
 export async function replyWithNoPermission(interaction: CommandInteraction): Promise<void> {
-  await replyToInteraction(interaction, 'Sorry, you\'re too young to use this command', { ephemeral: true });
+  await replyToInteraction(interaction, { content: 'Sorry, you\'re too young to use this command', ephemeral: true });
 }
 
 export async function getOrCreateDMChannel(
@@ -86,7 +79,7 @@ export async function getOrCreateDMChannel(
   }
 
   const channel = await getChannel(channelId);
-  if (channel === null || !(channel instanceof DMChannel)) return null;
+  if (!(channel instanceof DMChannel)) return null;
 
   return channel;
 }

@@ -2,7 +2,6 @@ import Settings from '../classes/settings';
 import { downloadFile, uploadFile } from './dropboxService';
 
 const SETTINGS_FILE = 'settings.json';
-export const COMMAND_PREFIX = '&';
 let settings = new Settings();
 
 export async function start(): Promise<void> {

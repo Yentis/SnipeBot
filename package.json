@@ -10,13 +10,12 @@
     "start": "ts-node server.ts"
   },
   "dependencies": {
-    "@types/mongodb": "^3.6.9",
     "@types/node": "^14.14.34",
     "@types/node-fetch": "^2.5.8",
-    "discord.js": "github:discordjs/discord.js",
+    "discord.js": "13.6.0",
     "dotenv": "^8.2.0",
     "dropbox": "^4.0.27",
-    "mongodb": "^3.5.9",
+    "mongodb": "4.6.0",
     "node-fetch": "^2.6.1",
     "ts-node": "^9.1.1",
     "typescript": "^4.2.3"
@@ -40,7 +39,7 @@
     "@typescript-eslint/eslint-plugin": "^4.17.0",
     "@typescript-eslint/parser": "^4.17.0",
     "eslint": "^7.21.0",
-    "eslint-config-airbnb-base": "^14.2.1",
+    "eslint-config-standard": "^16.0.2",
     "eslint-plugin-import": "^2.22.1",
     "eslint-plugin-node": "^11.1.0",
     "eslint-plugin-promise": "^4.3.1"

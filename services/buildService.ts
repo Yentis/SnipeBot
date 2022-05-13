@@ -13,6 +13,7 @@ import Score from '../classes/database/score';
 import * as ApiScore from '../classes/osuApi/score';
 import { getBeatmapInfo, MODES } from './osuApiService';
 import { Mode } from '../commands/utils';
+import Statistics from '../classes/osuApi/statistics';
 
 export const OSU_URL = 'https://osu.ppy.sh';
 
@@ -21,7 +22,7 @@ let shouldStop = false;
 
 // Note: this helper throws!
 function sleep(time: number) {
-  return new Promise((_resolve, reject) => setTimeout(reject, time));
+  return new Promise((resolve, reject) => setTimeout(reject, time));
 }
 
 async function parseResponse(
@@ -85,46 +86,63 @@ function getMessageOptionsFromScores(
   const difficultyRating = parseFloat(beatmap?.difficultyrating || '0').toFixed(2);
   const mode = MODES[parseInt(beatmap?.mode || '0', 10)];
 
-  const embed = new MessageEmbed();
-  embed.setAuthor(user.username, `https://a.ppy.sh/${user.id}`, `${OSU_URL}/users/${user.id}`);
-  embed.setTitle(`${artist} - ${title} [${version}] [${difficultyRating}★] [${mode}]`);
-  embed.setTimestamp(new Date(firstPlace.created_at));
-  embed.setColor(16777215);
+  const embed = new MessageEmbed()
+    .setAuthor({ name: user.username, url: `${OSU_URL}/users/${user.id}`, iconURL: `https://a.ppy.sh/${user.id}` })
+    .setTitle(`${artist} - ${title} [${version}] [${difficultyRating}★] [${mode}]`)
+    .setTimestamp(new Date(firstPlace.ended_at))
+    .setColor(16777215);
 
   if (beatmap) {
-    embed.setURL(`https://osu.ppy.sh/b/${beatmap.beatmap_id}`);
+    // If this URL does not end in / everything breaks... trust me.
+    embed.setURL(`https://osu.ppy.sh/b/${beatmap.beatmap_id}/`);
     embed.setThumbnail(`https://b.ppy.sh/thumb/${beatmap.beatmapset_id}l.jpg`);
   }
 
-  const mods = firstPlace.mods.length > 0 ? `+${firstPlace.mods.join('')}` : '';
+  const mods = firstPlace.mods.length > 0 ? `+${firstPlace.mods.map((mod) => mod.acronym).join('')}` : '';
   const maxCombo = beatmap?.max_combo ? `/${beatmap.max_combo}x` : '';
   const pp = firstPlace.pp !== null ? `${firstPlace.pp.toFixed(2)}PP ` : '';
   let statisticsText;
 
-  switch (firstPlace.mode_int) {
-    case Mode.mania:
-      statisticsText = `{ ${statistics.count_geki}/${statistics.count_300}/${statistics.count_katu}/${statistics.count_100}/${statistics.count_50}/${statistics.count_miss} }`;
+  const count300 = Statistics.getCount300(statistics);
+  const count100 = Statistics.getCount100(statistics);
+  const miss = Statistics.getMiss(statistics);
+
+  switch (firstPlace.ruleset_id) {
+    case Mode.mania: {
+      const geki = Statistics.getGeki(statistics);
+      const katu = Statistics.getKatu(statistics);
+      const count50 = Statistics.getCount50(statistics);
+
+      statisticsText = `{ ${geki}/${count300}/${katu}/${count100}/${count50}/${miss} }`;
       break;
-    case Mode.ctb:
-      statisticsText = `{ ${statistics.count_300}/${statistics.count_100}/${statistics.count_katu}/${statistics.count_miss} }`;
+    }
+    case Mode.ctb: {
+      const katu = Statistics.getKatu(statistics);
+
+      statisticsText = `{ ${count300}/${count100}/${katu}/${miss} }`;
       break;
-    case Mode.taiko:
-      statisticsText = `{ ${statistics.count_300}/${statistics.count_100}/${statistics.count_miss} }`;
+    }
+    case Mode.taiko: {
+      statisticsText = `{ ${count300}/${count100}/${miss} }`;
       break;
-    default:
-      statisticsText = `{ ${statistics.count_300}/${statistics.count_100}/${statistics.count_50}/${statistics.count_miss} }`;
+    }
+    default: {
+      const count50 = Statistics.getCount50(statistics);
+
+      statisticsText = `{ ${count300}/${count100}/${count50}/${miss} }`;
       break;
+    }
   }
 
-  embed.fields.push({
-    name: `[ ${firstPlace.rank} ] ${mods} ${firstPlace.score.toLocaleString()} (${(firstPlace.accuracy * 100).toFixed(2)}%)`,
-    value: `${pp}[ ${firstPlace.max_combo}x${maxCombo} ] ${statisticsText}`,
-    inline: false
-  });
+  embed.addField(
+    `[ ${firstPlace.rank} ] ${mods} ${firstPlace.total_score.toLocaleString()} (${(firstPlace.accuracy * 100).toFixed(2)}%)`,
+    `${pp}[ ${firstPlace.max_combo}x${maxCombo} ] ${statisticsText}`,
+    false
+  );
 
   return {
     content,
-    embed
+    embeds: [embed]
   };
 }
 
@@ -175,7 +193,7 @@ export async function handleCountryScores(
   await bulkAddScoreRows(beatmapId, scores.slice(0, count));
   const oldDate = score.date;
 
-  const mapWasSniped = await getMapWasSniped(beatmapId, oldDate, new Date(firstPlace.created_at));
+  const mapWasSniped = await getMapWasSniped(beatmapId, oldDate, new Date(firstPlace.ended_at));
   if (!mapWasSniped) {
     return getMessageOptionsFromScores(`First place is ${user.username}`, scores);
   }
@@ -258,8 +276,8 @@ export async function createDatabase(
 
   let index = 0;
   // Keep looping until shouldStop becomes true or we reach the end of the list
+  // eslint-disable-next-line no-unmodified-loop-condition
   while (!shouldStop && (index + 1 + startIndex) <= totalLength) {
-    // eslint-disable-next-line no-await-in-loop
     await doRequest(index, idList, startIndex, totalLength);
     index += 1;
   }

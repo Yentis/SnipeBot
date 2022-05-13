@@ -1,18 +1,22 @@
 import BeatmapResponse from './beatmapResponse';
 import Statistics from './statistics';
 
+interface Mods {
+  acronym: string
+}
+
 export default class Score {
   beatmap: BeatmapResponse | null
 
-  'mode_int': number
+  'ruleset_id': number
 
-  score: number
+  'total_score': number
 
   rank: string
 
   accuracy: number
 
-  mods: string[]
+  mods: Mods[]
 
   'max_combo': number
 
@@ -22,22 +26,24 @@ export default class Score {
 
   user: { id: string, username: string }
 
-  'created_at': string
+  'ended_at': string
 
   constructor(
     beatmap: BeatmapResponse,
-    score: number,
+    rulesetId: number,
+    totalScore: number,
     rank: string,
     accuracy: number,
-    mods: string[],
+    mods: Mods[],
     maxCombo: number,
     pp: number,
     statistics: Statistics,
     user: { id: string, username: string },
-    createdAt: string
+    endedAt: string
   ) {
     this.beatmap = beatmap;
-    this.score = score;
+    this.ruleset_id = rulesetId;
+    this.total_score = totalScore;
     this.rank = rank;
     this.accuracy = accuracy;
     this.mods = mods;
@@ -45,6 +51,6 @@ export default class Score {
     this.pp = pp;
     this.statistics = statistics;
     this.user = user;
-    this.created_at = createdAt;
+    this.ended_at = endedAt;
   }
 }

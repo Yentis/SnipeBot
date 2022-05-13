@@ -10,5 +10,5 @@ export default async function run(interaction: CommandInteraction): Promise<void
   }
 
   stopBuilding();
-  await replyToInteraction(interaction, 'Rebuild stopped', { ephemeral: true });
+  await replyToInteraction(interaction, { content: 'Rebuild stopped', ephemeral: true });
 }

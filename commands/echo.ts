@@ -1,6 +1,7 @@
 import {
   CommandInteraction, DMChannel, TextChannel
 } from 'discord.js';
+import { EchoOptions } from '../enums/command';
 import { replyToInteraction } from './manager';
 import {
   getOrCreateDMChannel,
@@ -13,9 +14,9 @@ export default async function run(interaction: CommandInteraction): Promise<void
     return;
   }
 
-  const content = interaction.options[0].value || '';
+  const content = interaction.options.getString(EchoOptions.input.name) || '';
   const channel = interaction.channel
-    || await getOrCreateDMChannel(interaction.channelID, interaction.user);
+    || await getOrCreateDMChannel(interaction.channelId, interaction.user);
 
   if (
     !(channel instanceof TextChannel)
@@ -25,6 +26,6 @@ export default async function run(interaction: CommandInteraction): Promise<void
     return;
   }
 
-  await replyToInteraction(interaction, 'Done!', { ephemeral: true });
+  await replyToInteraction(interaction, { content: 'Done!', ephemeral: true });
   await channel.send(content);
 }

@@ -11,15 +11,15 @@ export default async function run(interaction: CommandInteraction): Promise<void
 
   const progressMessage = getProgressMessage(interaction.channel.id);
   if (progressMessage === null) {
-    await replyToInteraction(interaction, 'Currently not rebuilding');
+    await replyToInteraction(interaction, { content: 'Currently not rebuilding' });
     return;
   }
 
   const guildId = progressMessage.guild?.id;
   if (guildId === undefined) {
-    await replyToInteraction(interaction, 'Could not find server belonging to progress message', { ephemeral: true });
+    await replyToInteraction(interaction, { content: 'Could not find server belonging to progress message', ephemeral: true });
     return;
   }
 
-  await replyToInteraction(interaction, `https://discordapp.com/channels/${guildId}/${progressMessage.channel.id}/${progressMessage.id}`);
+  await replyToInteraction(interaction, { content: `https://discordapp.com/channels/${guildId}/${progressMessage.channel.id}/${progressMessage.id}` });
 }

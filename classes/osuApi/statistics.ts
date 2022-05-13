@@ -1,29 +1,53 @@
 export default class Statistics {
-  'count_50': number
+  private 'count_geki'?: number
 
-  'count_100': number
+  private perfect?: number
 
-  'count_300': number
+  private 'count_katu'?: number
 
-  'count_geki': number
+  private good?: number
 
-  'count_katu': number
+  private 'small_tick_miss'?: number
 
-  'count_miss': number
+  private 'count_300'?: number
 
-  constructor(
-    count50: number,
-    count100: number,
-    count300: number,
-    countGeki: number,
-    countKatu: number,
-    countMiss: number
-  ) {
-    this.count_50 = count50;
-    this.count_100 = count100;
-    this.count_300 = count300;
-    this.count_geki = countGeki;
-    this.count_katu = countKatu;
-    this.count_miss = countMiss;
+  private great?: number
+
+  private 'count_100'?: number
+
+  private ok?: number
+
+  private 'large_tick_hit'?: number
+
+  private 'count_50'?: number
+
+  private meh?: number
+
+  private 'small_tick_hit'?: number
+
+  private miss?: number
+
+  static getGeki(statistics: Statistics): number {
+    return statistics.count_geki ?? statistics.perfect ?? 0;
+  }
+
+  static getKatu(statistics: Statistics): number {
+    return statistics.count_katu ?? statistics.good ?? statistics.small_tick_miss ?? 0;
+  }
+
+  static getCount300(statistics: Statistics): number {
+    return statistics.count_300 ?? statistics.great ?? 0;
+  }
+
+  static getCount100(statistics: Statistics): number {
+    return statistics.count_100 ?? statistics.ok ?? statistics.large_tick_hit ?? 0;
+  }
+
+  static getCount50(statistics: Statistics): number {
+    return statistics.count_50 ?? statistics.meh ?? statistics.small_tick_hit ?? 0;
+  }
+
+  static getMiss(statistics: Statistics): number {
+    return statistics.miss ?? 0;
   }
 }

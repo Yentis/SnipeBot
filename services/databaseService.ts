@@ -1,4 +1,4 @@
-import { Db, MongoClient } from 'mongodb';
+import { MongoClient } from 'mongodb';
 import BeatmapAddRequest from '../classes/database/beatmapAddRequest';
 import BeatmapResponse from '../classes/osuApi/beatmapResponse';
 import Score from '../classes/database/score';
@@ -11,80 +11,50 @@ const mongoDbPass = process.env.MONGODB_PASS;
 if (!mongoDbPass) throw Error('MONGODB_PASS environment variable not defined!');
 
 const uri = `mongodb+srv://${mongoDbUser}:${mongoDbPass}@cluster0.himju.gcp.mongodb.net/osusnipebot?retryWrites=true&w=majority`;
-const client = new MongoClient(uri, { useNewUrlParser: true, useUnifiedTopology: true });
+const client = new MongoClient(uri);
 const BEATMAPS = 'Beatmaps';
-
-function connectToDB(): Promise<void> {
-  return new Promise((resolve, reject) => {
-    client.connect((err) => {
-      if (err) {
-        reject(err);
-      } else resolve();
-    });
-  });
-}
-
-function getCollections(db: Db): Promise<{ name: string }[]> {
-  return new Promise((resolve, reject) => {
-    db.listCollections().toArray((err, items) => {
-      if (err) reject(err);
-      else resolve(items);
-    });
-  });
-}
-
-function createCollection(
-  db: Db,
-  collection: string,
-  validator: { $jsonSchema: Record<string, unknown> }
-): Promise<unknown> {
-  return new Promise((resolve, reject) => {
-    db.createCollection(collection, { validator }, (err, result) => {
-      if (err) reject(err);
-      else resolve(result);
-    });
-  });
-}
 
 async function initDB(): Promise<void> {
   const db = client.db();
-  const collections = await getCollections(db);
+  const collections = await db.listCollections().toArray();
 
-  const tableExists = collections.some((collection) => collection.name === BEATMAPS);
+  const tableExists = collections?.some((collection) => collection.name === BEATMAPS);
   if (tableExists) return;
 
-  await createCollection(db, BEATMAPS, {
-    $jsonSchema: {
-      bsonType: 'object',
-      required: ['artist', 'difficulty', 'title', 'version', 'mode', 'approvedDate'],
-      properties: {
-        artist: {
-          bsonType: 'string',
-          description: 'Song artist; required.'
-        },
-        difficulty: {
-          bsonType: 'string',
-          description: 'Map difficulty; required.'
-        },
-        title: {
-          bsonType: 'string',
-          description: 'Song title; required.'
-        },
-        version: {
-          bsonType: 'string',
-          description: 'Map difficulty name; required.'
-        },
-        mode: {
-          bsonType: 'string',
-          description: 'Map gamemode; required.'
-        },
-        approvedDate: {
-          bsonType: 'date',
-          description: 'Map approved date; required.'
-        },
-        scores: {
-          bsonType: 'array',
-          description: 'Scores for this map.'
+  await db.createCollection(BEATMAPS, {
+    validator: {
+      $jsonSchema: {
+        bsonType: 'object',
+        required: ['artist', 'difficulty', 'title', 'version', 'mode', 'approvedDate'],
+        properties: {
+          artist: {
+            bsonType: 'string',
+            description: 'Song artist; required.'
+          },
+          difficulty: {
+            bsonType: 'string',
+            description: 'Map difficulty; required.'
+          },
+          title: {
+            bsonType: 'string',
+            description: 'Song title; required.'
+          },
+          version: {
+            bsonType: 'string',
+            description: 'Map difficulty name; required.'
+          },
+          mode: {
+            bsonType: 'string',
+            description: 'Map gamemode; required.'
+          },
+          approvedDate: {
+            bsonType: 'date',
+            description: 'Map approved date; required.'
+          },
+          scores: {
+            bsonType: 'array',
+            description: 'Scores for this map.'
+          }
         }
       }
     }
@@ -103,7 +73,7 @@ function toISODate(date: Date) {
 }
 
 export async function connect(): Promise<void> {
-  await connectToDB();
+  await client.connect();
   await initDB();
 }
 
@@ -117,7 +87,7 @@ export async function getNewestMap(): Promise<string | null> {
   return toISODate(results[0].approvedDate);
 }
 
-export function bulkAddBeatmapRows(maps: BeatmapResponse[]): Promise<void> {
+export async function bulkAddBeatmapRows(maps: BeatmapResponse[]): Promise<void> {
   const beatmaps = maps.reduce((result, map) => {
     if (map.approved === '3') return result;
 
@@ -142,14 +112,8 @@ export function bulkAddBeatmapRows(maps: BeatmapResponse[]): Promise<void> {
     return result;
   }, [] as BeatmapAddRequest[]);
 
-  if (beatmaps.length === 0) return Promise.resolve();
-
-  return new Promise((resolve, reject) => {
-    client.db().collection(BEATMAPS).bulkWrite(beatmaps, (err) => {
-      if (err) reject(err);
-      else resolve();
-    });
-  });
+  if (beatmaps.length === 0) return;
+  await client.db().collection(BEATMAPS).bulkWrite(beatmaps);
 }
 
 export function getMapCount(): Promise<number> {
@@ -165,15 +129,15 @@ export async function getFirstPlaceForMap(mapId: number): Promise<{ firstPlace: 
   return results[0];
 }
 
-export function bulkAddScoreRows(mapId: number, scores: ApiScore.default[]): Promise<void> {
-  let firstPlace: Score;
+export async function bulkAddScoreRows(mapId: number, scores: ApiScore.default[]): Promise<void> {
+  let firstPlace: Score | undefined;
 
   const scoreList = scores.map((score) => {
     const playerScore = new Score(
       parseInt(score.user.id, 10),
       score.user.username,
-      new Date(score.created_at),
-      score.score
+      new Date(score.ended_at),
+      score.total_score
     );
 
     if (!firstPlace) {
@@ -181,23 +145,18 @@ export function bulkAddScoreRows(mapId: number, scores: ApiScore.default[]): Pro
       return playerScore;
     }
 
-    if (playerScore.score < firstPlace.score) return playerScore;
+    if (Score.getScore(playerScore) < Score.getScore(firstPlace)) return playerScore;
     if (
-      playerScore.score === firstPlace.score
-      && playerScore.date > firstPlace.date
+      playerScore.score === firstPlace.score &&
+      playerScore.date > firstPlace.date
     ) return playerScore;
 
     firstPlace = playerScore;
     return playerScore;
   });
 
-  return new Promise((resolve, reject) => {
-    client.db().collection(BEATMAPS)
-      .updateOne({ _id: mapId.toString() }, { $set: { scores: scoreList, firstPlace } }, (err) => {
-        if (err) reject(err);
-        else resolve();
-      });
-  });
+  await client.db().collection(BEATMAPS)
+    .updateOne({ _id: mapId.toString() }, { $set: { scores: scoreList, firstPlace } });
 }
 
 export async function getMapWasSniped(
@@ -230,66 +189,53 @@ export function getFirstPlacesForPlayer(playerId: number, mode: number): Promise
     .toArray() as Promise<Beatmap[]>;
 }
 
-export function getFirstPlaceTop(
+export async function getFirstPlaceTop(
   mode: number,
   count: number
 ): Promise<{ playerName: string, count: number }[]> {
   const ranking: Record<string, number> = {};
 
-  const cursor = client.db().collection(BEATMAPS).find({ mode: mode.toString(), firstPlace: { $exists: true } }).project({ _id: 0, 'firstPlace.playerName': 1 });
-  cursor.on('data', (data: Beatmap) => {
-    const playerName = data.firstPlace?.playerName;
-    if (!playerName) return;
+  await client.db().collection(BEATMAPS)
+    .find({ mode: mode.toString(), firstPlace: { $exists: true } })
+    .project({ _id: 0, 'firstPlace.playerName': 1 })
+    .forEach((data) => {
+      const playerName = (data as Beatmap).firstPlace?.playerName;
+      if (!playerName) return;
 
-    if (ranking[playerName]) {
-      ranking[playerName] += 1;
-    } else {
-      ranking[playerName] = 1;
-    }
-  });
-
-  return new Promise((resolve) => {
-    cursor.on('end', () => {
-      const keys = Object.keys(ranking);
-      keys.sort((a, b) => ranking[b] - ranking[a]);
-
-      const topList = keys.map((key) => ({
-        playerName: key,
-        count: ranking[key]
-      }));
-
-      resolve(topList.slice(0, count));
+      if (ranking[playerName]) {
+        ranking[playerName] += 1;
+      } else {
+        ranking[playerName] = 1;
+      }
     });
-  });
+
+  const keys = Object.keys(ranking);
+  keys.sort((a, b) => ranking[b] - ranking[a]);
+
+  const topList = keys.map((key) => ({
+    playerName: key,
+    count: ranking[key]
+  }));
+
+  return topList.slice(0, count);
 }
 
-export function getMapsForPlayer(playerId: string, mode: number): Promise<Beatmap[]> {
-  const maps: Beatmap[] = [];
+export async function getMapsForPlayer(playerId: string, mode: number): Promise<Beatmap[]> {
+  const beatmaps = await client.db().collection(BEATMAPS)
+    .find({ mode: mode.toString(), 'scores.playerId': parseInt(playerId, 10) }).project({ firstplace: 0 })
+    .toArray();
 
-  const cursor = client.db().collection(BEATMAPS).find({ mode: mode.toString(), 'scores.playerId': parseInt(playerId, 10) }).project({ firstplace: 0 });
-  cursor.on('data', (data: Beatmap) => {
-    maps.push(data);
-  });
-
-  return new Promise((resolve) => {
-    cursor.on('end', () => resolve(maps));
-  });
+  return beatmaps as Beatmap[];
 }
 
-export function getMapIds(): Promise<string[]> {
-  const mapIds: string[] = [];
+export async function getMapIds(): Promise<string[]> {
+  const mapIds = await client.db().collection(BEATMAPS)
+    .find().project({ _id: 1 }).map((document) => {
+      const beatmap = document as { _id: string };
+      return beatmap._id;
+    }).toArray();
 
-  const cursor = client.db().collection(BEATMAPS).find().project({ _id: 1 });
-  cursor.on('data', (data: Beatmap) => {
-    // eslint-disable-next-line no-underscore-dangle
-    mapIds.push(data._id);
-  });
-
-  return new Promise((resolve) => {
-    cursor.on('end', () => {
-      resolve(mapIds);
-    });
-  });
+  return mapIds;
 }
 
 function exitHandler(options: { cleanup?: boolean, exit?: boolean }) {

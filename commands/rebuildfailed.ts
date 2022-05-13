@@ -12,10 +12,10 @@ export default async function run(interaction: CommandInteraction): Promise<void
 
   const failedIds = getFailedIds();
   if (failedIds.length === 0) {
-    await replyToInteraction(interaction, 'Nothing to rebuild');
+    await replyToInteraction(interaction, { content: 'Nothing to rebuild' });
     return;
   }
 
-  await replyToInteraction(interaction, 'Rebuild started', { ephemeral: true });
+  await replyToInteraction(interaction, { content: 'Rebuild started', ephemeral: true });
   createDatabase(failedIds.slice(0), 0, true).catch((error) => console.error(error));
 }

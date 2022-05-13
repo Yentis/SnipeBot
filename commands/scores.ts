@@ -1,11 +1,9 @@
 import {
-  APIMessage, CommandInteraction, CommandInteractionOption, DMChannel, TextChannel
+  CommandInteraction, DMChannel, TextChannel
 } from 'discord.js';
 import {
   getModeFromOptions,
   getOrCreateDMChannel,
-  getUnclaimedFromOptions,
-  getUserFromOptions,
   getUsernameFromOptions,
   replyWithInvalidChannel,
   tryGetUser
@@ -15,6 +13,7 @@ import { getUser } from '../services/osuApiService';
 import { getFirstPlacesForPlayer, getMapsWithNoScores } from '../services/databaseService';
 import LocalUser from '../classes/localUser';
 import { replyToInteraction, replyToInteractionApi } from './manager';
+import { GeneralOptions } from '../enums/command';
 
 async function countThroughMapIds(user: LocalUser | null, mode: number) {
   const userId = user ? parseInt(user.userId, 10) : null;
@@ -34,14 +33,13 @@ async function countThroughMapIds(user: LocalUser | null, mode: number) {
 
 async function sendReply(
   interaction: CommandInteraction,
-  options: Array<CommandInteractionOption>,
   user: LocalUser | null,
   emptyResponseText: string,
   responseText: string,
   filename: string
 ) {
   const channel = interaction.channel
-    || await getOrCreateDMChannel(interaction.channelID, interaction.user);
+    || await getOrCreateDMChannel(interaction.channelId, interaction.user);
 
   if (
     !(channel instanceof TextChannel)
@@ -51,26 +49,24 @@ async function sendReply(
     return;
   }
 
-  const mode = getModeFromOptions(options);
+  const mode = getModeFromOptions(interaction);
   const list = await countThroughMapIds(user, mode);
   if (list.amount === 0) {
-    await replyToInteraction(interaction, emptyResponseText);
+    await replyToInteraction(interaction, { content: emptyResponseText });
     return;
   }
 
-  await replyToInteractionApi(interaction, new APIMessage(channel, {
+  await replyToInteractionApi(interaction, {
     content: `${responseText} (${list.amount} maps):`,
-    split: false,
     files: [{ attachment: Buffer.from(list.list), name: filename }]
-  }));
+  });
 }
 
 export default async function run(interaction: CommandInteraction): Promise<void> {
-  const unclaimed = getUnclaimedFromOptions(interaction.options);
-  if (unclaimed !== undefined) {
+  const subcommand = interaction.options.getSubcommand();
+  if (subcommand === GeneralOptions.unclaimed.name) {
     await sendReply(
       interaction,
-      unclaimed.options || [],
       null,
       'All maps have a #1 score',
       'Here are all the maps without any scores',
@@ -79,19 +75,17 @@ export default async function run(interaction: CommandInteraction): Promise<void
     return;
   }
 
-  const options = getUserFromOptions(interaction.options)?.options || [];
-  const targetUser = getUsernameFromOptions(options);
+  const targetUser = getUsernameFromOptions(interaction);
   const user = targetUser !== null ? await getUser(targetUser) : await tryGetUser(interaction.user);
 
   if (user === null) {
-    await replyToInteraction(interaction, 'User not found', { ephemeral: true });
+    await replyToInteraction(interaction, { content: 'User not found', ephemeral: true });
     return;
   }
 
   const { username } = user;
   await sendReply(
     interaction,
-    options,
     user,
     `${username} does not have any #1 scores`,
     `Here are all the maps ${username} is first place on`,

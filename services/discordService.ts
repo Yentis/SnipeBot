@@ -1,7 +1,7 @@
 import {
   ActivitiesOptions,
   ActivityOptions,
-  Channel,
+  AnyChannel,
   Client, DMChannel, Intents, Message, MessageOptions, NewsChannel, TextChannel, User
 } from 'discord.js';
 import RawEvent from '../interfaces/rawEvent';
@@ -37,7 +37,7 @@ bot.on('raw', (event: RawEvent) => {
   handleCommand(Command.REACTION, undefined, event).catch((error) => console.error(error));
 });
 
-bot.on('message', (message) => {
+bot.on('messageCreate', (message) => {
   const beatmapId = tryGetBeatmapFromMessage(message, bot.user?.id || null);
   if (!beatmapId) return;
 
@@ -49,7 +49,7 @@ bot.on('message', (message) => {
     .catch((error) => console.error(error));
 });
 
-bot.on('interaction', (interaction) => {
+bot.on('interactionCreate', (interaction) => {
   if (!interaction.isCommand()) return;
 
   const { commandName } = interaction;
@@ -59,11 +59,16 @@ bot.on('interaction', (interaction) => {
   handleCommand(command, interaction).catch((error) => console.error(error));
 });
 
-bot.once('ready', () => {
-  getCommandData().forEach((command) => {
-    bot.application?.commands?.create(command)
-      .catch((error) => console.error(error));
+async function createCommands() {
+  const createPromises = getCommandData().map((command) => {
+    return bot?.application?.commands?.create(command);
   });
+
+  await Promise.all(createPromises);
+}
+
+bot.once('ready', () => {
+  createCommands().catch(console.error);
 });
 
 bot.on('ready', () => {
@@ -89,20 +94,27 @@ export async function send(
   return channel.send(content);
 }
 
-export function publish(message: MessageOptions): Promise<(Message | Message[])[]> {
-  const promises = getLinkedChannels().reduce((result, channelId) => {
-    const channel = bot.channels.cache.get(channelId);
-    if (
-      !(channel instanceof TextChannel)
-      && !(channel instanceof DMChannel)
-      && !(channel instanceof NewsChannel)
-    ) return result;
+export async function publish(message: MessageOptions): Promise<(Message | Message[])[]> {
+  const channels = await Promise.all(
+    getLinkedChannels().map((channelId) => bot.channels.cache.get(channelId))
+  );
 
-    result.push(send(channel, message));
-    return result;
-  }, [] as Promise<Message | Message[]>[]);
+  const sendableChannels = channels.filter((channel) => {
+    return channel instanceof TextChannel ||
+      channel instanceof DMChannel ||
+      channel instanceof NewsChannel;
+  });
 
-  return Promise.all(promises);
+  const messages: (Message | Message[])[] = [];
+
+  for (const channel of sendableChannels) {
+    try {
+      const result = await (channel as TextChannel).send(message);
+      messages.push(result);
+    } catch (ignored) {}
+  }
+
+  return messages;
 }
 
 export function getUser(userId: string): Promise<User | null> {
@@ -112,7 +124,7 @@ export function getUser(userId: string): Promise<User | null> {
   return bot.users.fetch(userId);
 }
 
-export function getChannel(channelId: string): Promise<Channel | null> {
+export function getChannel(channelId: string): Promise<AnyChannel | null> {
   const channel = bot.channels.cache.get(channelId);
   if (channel) return Promise.resolve(channel);
 
@@ -129,3 +141,8 @@ export async function login(): Promise<void> {
 export function setActivity(options: ActivityOptions = DEFAULT_ACTIVITY): void {
   bot.user?.setActivity(options);
 }
+
+process.on('exit', () => {
+  console.info('Shutting down');
+  bot.destroy();
+});

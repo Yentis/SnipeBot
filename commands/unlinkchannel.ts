@@ -17,6 +17,6 @@ export default async function run(interaction: CommandInteraction): Promise<void
   }
 
   const removed = removeLinkedChannel(interaction.channel.id);
-  if (removed) await replyToInteraction(interaction, 'This channel was unlinked', { ephemeral: true });
-  else await replyToInteraction(interaction, 'This channel is not linked', { ephemeral: true });
+  if (removed) await replyToInteraction(interaction, { content: 'This channel was unlinked', ephemeral: true });
+  else await replyToInteraction(interaction, { content: 'This channel is not linked', ephemeral: true });
 }

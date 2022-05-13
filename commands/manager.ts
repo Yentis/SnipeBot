@@ -1,13 +1,18 @@
 import {
-  APIMessage,
+  ApplicationCommandChoicesData,
   ApplicationCommandData,
-  ApplicationCommandOptionData,
   CommandInteraction,
   DMChannel,
   InteractionReplyOptions
 } from 'discord.js';
 import { getLinkedChannels } from '../services/settingsService';
-import Command from '../enums/command';
+import Command, {
+  DeleteOptions,
+  EchoOptions,
+  GeneralOptions,
+  SnipeOptions,
+  TopOptions
+} from '../enums/command';
 import RawEvent from '../interfaces/rawEvent';
 import onReaction from './reaction';
 import onEcho from './echo';
@@ -41,7 +46,7 @@ export default async function handleCommand(
 
   // Defer after 1.5 seconds
   const timeout = setTimeout(() => {
-    interaction.defer().catch((error) => console.error(error));
+    interaction.deferReply().catch((error) => console.error(error));
   }, 1500);
 
   // These commands are always available
@@ -58,8 +63,8 @@ export default async function handleCommand(
   }
 
   // All commands are available in DMs
-  const channel = interaction.channel
-    || await getOrCreateDMChannel(interaction.channelID, interaction.user);
+  const channel = interaction.channel ||
+    await getOrCreateDMChannel(interaction.channelId, interaction.user);
 
   if (channel === null) {
     await replyWithInvalidChannel(interaction);
@@ -68,8 +73,8 @@ export default async function handleCommand(
   }
 
   if (
-    !(channel instanceof DMChannel)
-    && !getLinkedChannels().includes(channel.id)
+    !(channel instanceof DMChannel) &&
+    !getLinkedChannels().includes(channel.id)
   ) {
     await replyWithInvalidChannel(interaction);
     clearTimeout(timeout);
@@ -123,18 +128,18 @@ export default async function handleCommand(
   clearTimeout(timeout);
 }
 
-function getUsernameOption(): ApplicationCommandOptionData {
+function getUsernameOption(): ApplicationCommandChoicesData {
   return {
-    name: 'username',
-    type: 'STRING',
+    name: GeneralOptions.username.name,
+    type: GeneralOptions.username.type,
     description: 'The username to retrieve scores for'
   };
 }
 
-function getModeOption(): ApplicationCommandOptionData {
+function getModeOptions(): ApplicationCommandChoicesData {
   return {
-    name: 'mode',
-    type: 'STRING',
+    name: GeneralOptions.mode.name,
+    type: GeneralOptions.mode.type,
     description: 'The mode to retrieve scores for',
     choices: [{
       name: 'osu!',
@@ -159,8 +164,8 @@ export function getCommandData(): Array<ApplicationCommandData> {
     name: Command[Command.ECHO].toLowerCase(),
     description: 'Replies with your input',
     options: [{
-      name: 'input',
-      type: 'STRING',
+      name: EchoOptions.input.name,
+      type: EchoOptions.input.type,
       description: 'The input which should be echoed back',
       required: true
     }]
@@ -180,8 +185,8 @@ export function getCommandData(): Array<ApplicationCommandData> {
     name: Command[Command.SNIPE].toLowerCase(),
     description: 'Manually check a map\'s first place score',
     options: [{
-      name: 'beatmap',
-      type: 'INTEGER',
+      name: SnipeOptions.beatmap.name,
+      type: SnipeOptions.beatmap.type,
       description: 'The ID of the beatmap to check (not beatmapset)',
       required: true
     }]
@@ -191,8 +196,8 @@ export function getCommandData(): Array<ApplicationCommandData> {
     name: Command[Command.LINK].toLowerCase(),
     description: 'Link an osu! account to your discord user, this will make the bot PM you when you get sniped',
     options: [{
-      name: 'username',
-      type: 'STRING',
+      name: GeneralOptions.username.name,
+      type: GeneralOptions.username.type,
       description: 'Your osu! username'
     }]
   });
@@ -206,15 +211,15 @@ export function getCommandData(): Array<ApplicationCommandData> {
     name: Command[Command.SCORES].toLowerCase(),
     description: 'Get all unclaimed scores or #1 scores of a given user',
     options: [{
-      name: 'user',
-      type: 'SUB_COMMAND',
+      name: GeneralOptions.user.name,
+      type: GeneralOptions.user.type,
       description: 'Get all #1 scores of a given user',
-      options: [getUsernameOption(), getModeOption()]
+      options: [getUsernameOption(), getModeOptions()]
     }, {
-      name: 'unclaimed',
-      type: 'SUB_COMMAND',
+      name: GeneralOptions.unclaimed.name,
+      type: GeneralOptions.unclaimed.type,
       description: 'Get all unclaimed scores',
-      options: [getModeOption()]
+      options: [getModeOptions()]
     }]
   });
 
@@ -222,30 +227,30 @@ export function getCommandData(): Array<ApplicationCommandData> {
     name: Command[Command.COUNT].toLowerCase(),
     description: 'Get the amount of unclaimed scores or #1 scores of a given user',
     options: [{
-      name: 'user',
-      type: 'SUB_COMMAND',
+      name: GeneralOptions.user.name,
+      type: GeneralOptions.user.type,
       description: 'Get the amount of #1 scores of a given user',
-      options: [getUsernameOption(), getModeOption()]
+      options: [getUsernameOption(), getModeOptions()]
     }, {
-      name: 'unclaimed',
-      type: 'SUB_COMMAND',
+      name: GeneralOptions.unclaimed.name,
+      type: GeneralOptions.unclaimed.type,
       description: 'Get the amount of unclaimed scores',
-      options: [getModeOption()]
+      options: [getModeOptions()]
     }]
   });
 
   commands.push({
     name: Command[Command.SNIPES].toLowerCase(),
     description: 'Get all scores a given user has been sniped on',
-    options: [getUsernameOption(), getModeOption()]
+    options: [getUsernameOption(), getModeOptions()]
   });
 
   commands.push({
     name: Command[Command.DELETE].toLowerCase(),
     description: 'Delete things!',
     options: [{
-      name: 'target',
-      type: 'STRING',
+      name: DeleteOptions.target.name,
+      type: DeleteOptions.target.type,
       description: 'Thing to delete',
       required: true
     }]
@@ -255,11 +260,11 @@ export function getCommandData(): Array<ApplicationCommandData> {
     name: Command[Command.TOP].toLowerCase(),
     description: 'Get the top users by amount of #1 scores',
     options: [{
-      name: 'count',
-      type: 'INTEGER',
+      name: TopOptions.count.name,
+      type: TopOptions.count.type,
       description: 'Amount of users to retrieve (up to 100)',
       required: true
-    }, getModeOption()]
+    }, getModeOptions()]
   });
 
   commands.push({
@@ -287,22 +292,22 @@ export function getCommandData(): Array<ApplicationCommandData> {
 
 export async function replyToInteraction(
   interaction: CommandInteraction,
-  content: string,
-  options?: InteractionReplyOptions
+  options: InteractionReplyOptions
 ): Promise<unknown> {
   if (interaction.deferred) {
     if (options?.ephemeral === true) {
       await interaction.deleteReply();
     }
-    return interaction.followUp(content, options);
+
+    return interaction.followUp(options);
   }
 
-  return interaction.reply(content, options);
+  return interaction.reply(options);
 }
 
 export async function replyToInteractionApi(
   interaction: CommandInteraction,
-  message: APIMessage
+  message: InteractionReplyOptions
 ): Promise<unknown> {
   if (interaction.deferred) {
     return interaction.followUp(message);

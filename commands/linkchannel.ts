@@ -15,6 +15,6 @@ export default async function run(interaction: CommandInteraction): Promise<void
   }
 
   const added = addLinkedChannel(interaction.channel.id);
-  if (added) await replyToInteraction(interaction, 'This channel can now be used by the bot', { ephemeral: true });
-  else await replyToInteraction(interaction, 'This channel is already linked', { ephemeral: true });
+  if (added) await replyToInteraction(interaction, { content: 'This channel can now be used by the bot', ephemeral: true });
+  else await replyToInteraction(interaction, { content: 'This channel is already linked', ephemeral: true });
 }
