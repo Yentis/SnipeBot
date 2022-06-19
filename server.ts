@@ -29,6 +29,4 @@ async function init(): Promise<void> {
 
 init()
   .then(() => login())
-  .catch((error) => {
-    console.error(error);
-  });
+  .catch(console.error);

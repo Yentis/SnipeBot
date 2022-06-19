@@ -1,7 +1,7 @@
 import Score from './score';
 
 export default class ScoresResponse {
-  scores: Score[]
+  scores?: Score[]
 
   constructor(scores: Score[]) {
     this.scores = scores;

@@ -29,10 +29,14 @@ async function parseResponse(
   response: Response,
   beatmapId: string
 ): Promise<ApiScore.default[] | null> {
-  if (response.status === 404) return null;
+  if (response.status >= 400) {
+    const responseText = await response.text();
+    throw Error(`Request failed with status: ${response.status}, ${responseText}`);
+  }
 
-  const { scores } = await response.json() as ScoresResponse;
-  if (scores.length === 0) return null;
+  const responseJson: unknown = await response.json();
+  const { scores } = responseJson as ScoresResponse;
+  if (!scores) throw Error(`Failed to read scores in response: ${JSON.stringify(responseJson)}`);
 
   const beatmapInfo = await getBeatmapInfo(beatmapId);
   for (let i = 0; i < scores.length; i += 1) {

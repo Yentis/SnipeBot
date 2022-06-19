@@ -1,12 +1,12 @@
 import { CommandInteraction } from 'discord.js';
 import { getMapIds } from '../services/databaseService';
 import { clearFailedIds, setCurrentMapIndex } from '../services/settingsService';
-import { isOwner, replyWithNoPermission } from './utils';
+import { isMod, isOwner, replyWithNoPermission } from './utils';
 import { createDatabase } from '../services/buildService';
 import { replyToInteraction } from './manager';
 
 export default async function run(interaction: CommandInteraction): Promise<void> {
-  if (!isOwner(interaction.user.id)) {
+  if (!isMod(interaction.member) && !isOwner(interaction.user.id)) {
     await replyWithNoPermission(interaction);
     return;
   }

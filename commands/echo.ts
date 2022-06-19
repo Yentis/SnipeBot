@@ -15,12 +15,11 @@ export default async function run(interaction: CommandInteraction): Promise<void
   }
 
   const content = interaction.options.getString(EchoOptions.input.name) || '';
-  const channel = interaction.channel
-    || await getOrCreateDMChannel(interaction.channelId, interaction.user);
+  const channel = interaction.channel || await getOrCreateDMChannel(interaction.channelId, interaction.user);
 
   if (
-    !(channel instanceof TextChannel)
-    && !(channel instanceof DMChannel)
+    !(channel instanceof TextChannel) &&
+    !(channel instanceof DMChannel)
   ) {
     await replyWithInvalidChannel(interaction);
     return;
