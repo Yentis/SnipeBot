@@ -223,7 +223,21 @@ function finishCreatingDatabase() {
   return publish({ content: `Done. ${failedMessage}` });
 }
 
-async function doRequest(index: number, idList: string[], startIndex: number, totalLength: number) {
+async function doRequest(
+  {
+    index,
+    idList,
+    startIndex,
+    totalLength,
+    timeout
+  }: {
+    index: number,
+    idList: string[],
+    startIndex: number,
+    totalLength: number,
+    timeout: boolean
+  }
+) {
   const beatmapId = idList[index];
   const offsetIndex = index + 1 + startIndex;
   const failedIds = getFailedIds();
@@ -243,9 +257,14 @@ async function doRequest(index: number, idList: string[], startIndex: number, to
   try {
     // This will throw if the timer expires before we get our scores
     // so it will always be of type ParsedScoresResponse | null
-    scores = await Promise.race(
-      [sleep(21000), getCountryScores(beatmapId)]
-    ) as ApiScore.default[] | null;
+    if (timeout) {
+      scores = await Promise.race(
+        [sleep(21000), getCountryScores(beatmapId)]
+      ) as ApiScore.default[] | null;
+    } else {
+      scores = await getCountryScores(beatmapId);
+    }
+
     tryUnsetFailedId(beatmapId);
   } catch (error) {
     console.error(error);
@@ -282,7 +301,7 @@ export async function createDatabase(
   // Keep looping until shouldStop becomes true or we reach the end of the list
   // eslint-disable-next-line no-unmodified-loop-condition
   while (!shouldStop && (index + 1 + startIndex) <= totalLength) {
-    await doRequest(index, idList, startIndex, totalLength);
+    await doRequest({ index, idList, startIndex, totalLength, timeout: !rebuildFailed });
     index += 1;
   }
 
