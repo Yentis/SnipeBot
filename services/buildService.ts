@@ -229,13 +229,13 @@ async function doRequest(
     idList,
     startIndex,
     totalLength,
-    timeout
+    rebuildFailed
   }: {
     index: number,
     idList: string[],
     startIndex: number,
     totalLength: number,
-    timeout: boolean
+    rebuildFailed: boolean
   }
 ) {
   const beatmapId = idList[index];
@@ -255,14 +255,14 @@ async function doRequest(
 
   let scores: ApiScore.default[] | null = null;
   try {
-    // This will throw if the timer expires before we get our scores
-    // so it will always be of type ParsedScoresResponse | null
-    if (timeout) {
+    if (rebuildFailed) {
+      scores = await getCountryScoresRetrying(0, beatmapId);
+    } else {
+      // This will throw if the timer expires before we get our scores
+      // so it will always be of type ParsedScoresResponse | null
       scores = await Promise.race(
         [sleep(21000), getCountryScores(beatmapId)]
       ) as ApiScore.default[] | null;
-    } else {
-      scores = await getCountryScores(beatmapId);
     }
 
     tryUnsetFailedId(beatmapId);
@@ -275,6 +275,20 @@ async function doRequest(
   // Save our settings every 50 processed maps
   if (index % 50 === 0) {
     saveSettings().catch((error) => console.error(error));
+  }
+}
+
+async function getCountryScoresRetrying(tries: number, beatmapId: string): Promise<ApiScore.default[] | null> {
+  if (tries >= 3) {
+    setFailedId(beatmapId);
+    return null;
+  }
+
+  try {
+    return await getCountryScores(beatmapId);
+  } catch (error) {
+    console.error(error);
+    return getCountryScoresRetrying(tries + 1, beatmapId);
   }
 }
 
@@ -301,7 +315,7 @@ export async function createDatabase(
   // Keep looping until shouldStop becomes true or we reach the end of the list
   // eslint-disable-next-line no-unmodified-loop-condition
   while (!shouldStop && (index + 1 + startIndex) <= totalLength) {
-    await doRequest({ index, idList, startIndex, totalLength, timeout: !rebuildFailed });
+    await doRequest({ index, idList, startIndex, totalLength, rebuildFailed });
     index += 1;
   }
 
