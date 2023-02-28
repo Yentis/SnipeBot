@@ -8,6 +8,9 @@ import * as settingsService from './services/settingsService';
 import * as osuApiService from './services/osuApiService';
 import { getCountryScores } from './services/buildService';
 import { login } from './services/discordService';
+import express from 'express';
+
+const app = express()
 
 async function checkToken(): Promise<void> {
   await getCountryScores('53');
@@ -26,6 +29,10 @@ async function init(): Promise<void> {
   await Promise.all(promises);
   await checkToken();
 }
+
+app.listen(80, () => {
+  console.log('Listening on port 80');
+});
 
 init()
   .then(() => login())
