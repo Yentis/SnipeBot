@@ -7,7 +7,7 @@
   "description": "Server for hosting snipe-bot",
   "main": "server.ts",
   "scripts": {
-    "start": "ts-node server.ts"
+    "start": "npm -v && node -v && ts-node server.ts"
   },
   "dependencies": {
     "@types/node": "^14.14.34",
@@ -19,9 +19,6 @@
     "node-fetch": "^2.6.1",
     "ts-node": "^9.1.1",
     "typescript": "^4.2.3"
-  },
-  "engines": {
-    "node": "16.6.1"
   },
   "repository": {
     "url": "https://glitch.com/edit/#!/yentis-server"
