@@ -87,6 +87,10 @@ bot.on('ready', () => {
   }).catch((error) => console.error(error));
 });
 
+bot.on('error', (error) => {
+  console.error(error);
+});
+
 export function getBotId(): string | undefined {
   return bot.user?.id;
 }
