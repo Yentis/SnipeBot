@@ -2,7 +2,7 @@ import {
   ActivitiesOptions,
   ActivityOptions,
   AnyChannel,
-  Client, DMChannel, Intents, Message, MessageOptions, NewsChannel, TextChannel, User
+  Client, DMChannel, Intents, Message, MessageOptions, NewsChannel, Options, TextChannel, User
 } from 'discord.js';
 import RawEvent from '../interfaces/rawEvent';
 import { getLinkedChannels, getCurrentMapIndex } from './settingsService';
@@ -29,7 +29,11 @@ const bot = new Client({
   ],
   presence: {
     activities: [DEFAULT_ACTIVITY]
-  }
+  },
+  makeCache: Options.cacheWithLimits({
+    ...Options.defaultMakeCacheSettings,
+    MessageManager: 0
+  })
 });
 
 bot.on('raw', (event: RawEvent) => {

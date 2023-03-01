@@ -10,7 +10,7 @@ import { getCountryScores } from './services/buildService';
 import { login } from './services/discordService';
 import express from 'express';
 
-const app = express()
+const app = express();
 
 async function checkToken(): Promise<void> {
   await getCountryScores('53');
