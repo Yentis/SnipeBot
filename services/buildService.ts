@@ -138,11 +138,11 @@ function getMessageOptionsFromScores(
     }
   }
 
-  embed.addField(
-    `[ ${firstPlace.rank} ] ${mods} ${firstPlace.total_score.toLocaleString()} (${(firstPlace.accuracy * 100).toFixed(2)}%)`,
-    `${pp}[ ${firstPlace.max_combo}x${maxCombo} ] ${statisticsText}`,
-    false
-  );
+  embed.addFields([{
+    name: `[ ${firstPlace.rank} ] ${mods} ${firstPlace.total_score.toLocaleString()} (${(firstPlace.accuracy * 100).toFixed(2)}%)`,
+    value: `${pp}[ ${firstPlace.max_combo}x${maxCombo} ] ${statisticsText}`,
+    inline: false
+  }]);
 
   return {
     content,
@@ -247,10 +247,17 @@ async function doRequest(
 
   const progress = ((offsetIndex / totalLength) * 100).toFixed(2);
   const progressText = `Building: ${progress}% (${offsetIndex} of ${totalLength}) | ${failedIds.length} failed.`;
-  progressMessages.forEach((message) => {
-    message.edit(progressText)
-      .catch((error) => console.error(error));
+
+  const messagePromises = progressMessages.map((message) => {
+    return message.edit(progressText);
   });
+
+  try {
+    await Promise.all(messagePromises);
+  } catch (error) {
+    console.error(error);
+  }
+
   setActivity({ type: 'WATCHING', name: `${progress}%` });
 
   let scores: ApiScore.default[] | null = null;
@@ -259,7 +266,7 @@ async function doRequest(
       scores = await getCountryScoresRetrying(0, beatmapId);
     } else {
       // This will throw if the timer expires before we get our scores
-      // so it will always be of type ParsedScoresResponse | null
+      // so it will always be of type Score[] | null
       scores = await Promise.race(
         [sleep(21000), getCountryScores(beatmapId)]
       ) as ApiScore.default[] | null;
@@ -272,9 +279,14 @@ async function doRequest(
   }
 
   if (scores) await handleCountryScores(scores);
+
   // Save our settings every 50 processed maps
   if (index % 50 === 0) {
-    saveSettings().catch((error) => console.error(error));
+    try {
+      await saveSettings();
+    } catch (error) {
+      console.error(error);
+    }
   }
 }
 
