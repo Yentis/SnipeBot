@@ -23,6 +23,8 @@ async function init(): Promise<void> {
   if (!apiKey) throw Error('API_KEY environment variable not defined!');
 
   const pingUrl = process.env.PING_URL;
+  console.log('Ping url:', pingUrl);
+
   if (pingUrl) {
     setInterval(() => {
       console.log('Pinging...');
