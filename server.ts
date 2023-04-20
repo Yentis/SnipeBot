@@ -67,15 +67,12 @@ function sendRequest(url: string) {
   };
 
   const req = http.request(options, (res) => {
-    const chunks = [];
-
-    res.on('data', (chunk) => {
-      chunks.push(chunk);
+    res.on('data', () => {
+      // Do nothing
     });
 
-    res.on('end', (chunk: Uint8Array[]) => {
-      const body = Buffer.concat(chunk);
-      console.log(body.toString());
+    res.on('end', () => {
+      console.log('Pinged');
     });
 
     res.on('error', (error) => {
