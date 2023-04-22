@@ -29,7 +29,7 @@ async function init(): Promise<void> {
     setInterval(() => {
       console.log('Pinging...');
       sendRequest(pingUrl);
-    }, 15 * 60 * 1000);
+    }, 10 * 60 * 1000);
   }
 
   promises.push(osuApiService.updateBeatmapIds(apiKey));
