@@ -31,7 +31,7 @@ async function init(): Promise<void> {
   await checkToken();
 }
 
-server.listen(80, () => {
+server.listen(process.env.PORT, () => {
   console.log('Listening on port 80');
 });
 
