@@ -14,7 +14,7 @@ export async function uploadFile(file: string, content: string): Promise<void> {
 }
 
 export async function downloadFile<T>(file: string): Promise<T> {
-  const response = await dbx.filesDownload({ path: `/${file}` }) as { fileBinary?: Buffer };
+  const response = (await dbx.filesDownload({ path: `/${file}` })) as { fileBinary?: Buffer };
   if (!response.fileBinary) {
     throw new Error(`File not found: ${file}`);
   }

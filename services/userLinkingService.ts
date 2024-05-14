@@ -25,7 +25,7 @@ export function linkUser(discordUserId: string, userId: number): boolean {
   if (linkedUsers[discordUserId] === userId) return false;
 
   linkedUsers[discordUserId] = userId;
-  saveLinkedUsers().catch((error) => console.error(error));
+  saveLinkedUsers().catch(console.error);
 
   return true;
 }
@@ -34,7 +34,7 @@ export function unlinkUser(discordUserId: string): boolean {
   if (!linkedUsers[discordUserId]) return false;
 
   delete linkedUsers[discordUserId];
-  saveLinkedUsers().catch((error) => console.error(error));
+  saveLinkedUsers().catch(console.error);
 
   return true;
 }

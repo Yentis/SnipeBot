@@ -16,5 +16,5 @@ export default async function run(interaction: CommandInteraction): Promise<void
   const mapIds = await getMapIds();
 
   await replyToInteraction(interaction, { content: 'Rebuild started', ephemeral: true });
-  createDatabase(mapIds).catch((error) => console.error(error));
+  createDatabase(mapIds).catch(console.error);
 }

@@ -17,5 +17,5 @@ export default async function run(interaction: CommandInteraction): Promise<void
   }
 
   await replyToInteraction(interaction, { content: 'Rebuild started', ephemeral: true });
-  createDatabase(failedIds.slice(0), 0, true).catch((error) => console.error(error));
+  createDatabase(failedIds.slice(0), 0, true).catch(console.error);
 }

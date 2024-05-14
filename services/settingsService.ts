@@ -22,7 +22,7 @@ export function addLinkedChannel(channelId: string): boolean {
   if (settings.linkedChannels.includes(channelId)) return false;
 
   settings.linkedChannels.push(channelId);
-  saveSettings().catch((error) => console.error(error));
+  saveSettings().catch(console.error);
 
   return true;
 }
@@ -32,7 +32,7 @@ export function removeLinkedChannel(channelId: string): boolean {
   if (linkedChannelId === -1) return false;
 
   settings.linkedChannels.splice(linkedChannelId, 1);
-  saveSettings().catch((error) => console.error(error));
+  saveSettings().catch(console.error);
 
   return true;
 }

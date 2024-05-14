@@ -35,7 +35,6 @@ server.listen(process.env.PORT, () => {
   console.log('Listening on port 80');
 });
 
-/* init()
+init()
   .then(() => login())
   .catch(console.error);
-*/

@@ -4,9 +4,7 @@ import BeatmapResponse from '../classes/osuApi/beatmapResponse';
 import LocalUser from '../classes/localUser';
 import UserResponse from '../classes/userResponse';
 import { OSU_URL } from './buildService';
-import {
-  bulkAddBeatmapRows, connect, getMapCount, getNewestMap
-} from './databaseService';
+import { bulkAddBeatmapRows, connect, getMapCount, getNewestMap } from './databaseService';
 import { downloadFile, uploadFile } from './dropboxService';
 
 export const MODES = ['osu!', 'osu!taiko', 'osu!catch', 'osu!mania'];
@@ -30,8 +28,7 @@ function getExistingUser(user: string): LocalUser | null {
     return new LocalUser(user, username);
   }
 
-  const cachedUserKey = Object.keys(cachedUsers)
-    .find((key) => cachedUsers[key].toLowerCase() === user.toLowerCase());
+  const cachedUserKey = Object.keys(cachedUsers).find((key) => cachedUsers[key].toLowerCase() === user.toLowerCase());
 
   return cachedUserKey ? new LocalUser(cachedUserKey, cachedUsers[cachedUserKey]) : null;
 }
@@ -45,19 +42,19 @@ export async function getUser(user: string): Promise<LocalUser | null> {
   params.append('u', user);
   const response = await fetch(`${API_URL}/get_user`, { method: 'post', body: params });
 
-  const body = await response.json() as UserResponse[];
+  const body = (await response.json()) as UserResponse[];
   if (body.length === 0) return null;
 
   const fetchedUser = body[0];
   cachedUsers[fetchedUser.user_id] = fetchedUser.username;
 
-  uploadFile(CACHED_USERS_FILE, JSON.stringify(cachedUsers)).catch((error) => console.error(error));
+  uploadFile(CACHED_USERS_FILE, JSON.stringify(cachedUsers)).catch(console.error);
   return new LocalUser(fetchedUser.user_id, fetchedUser.username);
 }
 
 function twoDigits(d: number): string {
   if (d >= 0 && d < 10) return `0${d}`;
-  if (d > -10 && d < 0) return `-0${(-1 * d)}`;
+  if (d > -10 && d < 0) return `-0${-1 * d}`;
   return d.toString();
 }
 
@@ -91,7 +88,7 @@ async function sendRequest(date: string): Promise<string | null> {
   console.info(`Current date: ${date}`);
 
   const response = await fetch(`${API_URL}/get_beatmaps`, { method: 'post', body: params });
-  const beatmaps = await response.json() as BeatmapResponse[];
+  const beatmaps = (await response.json()) as BeatmapResponse[];
 
   if (beatmaps.length === 0) return null;
   await bulkAddBeatmapRows(beatmaps);
@@ -109,7 +106,7 @@ export async function getBeatmapInfo(id: string): Promise<BeatmapResponse | null
   params.append('b', id);
 
   const response = await fetch(`${API_URL}/get_beatmaps`, { method: 'post', body: params });
-  const beatmaps = await response.json() as BeatmapResponse[];
+  const beatmaps = (await response.json()) as BeatmapResponse[];
 
   if (beatmaps.length === 0) return null;
   return beatmaps[0];

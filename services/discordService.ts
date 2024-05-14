@@ -2,7 +2,15 @@ import {
   ActivitiesOptions,
   ActivityOptions,
   AnyChannel,
-  Client, DMChannel, Intents, Message, MessageOptions, NewsChannel, Options, TextChannel, User
+  Client,
+  DMChannel,
+  Intents,
+  Message,
+  MessageOptions,
+  NewsChannel,
+  Options,
+  TextChannel,
+  User,
 } from 'discord.js';
 import RawEvent from '../interfaces/rawEvent';
 import { getLinkedChannels, getCurrentMapIndex } from './settingsService';
@@ -14,31 +22,31 @@ import { getMapIds } from './databaseService';
 
 const DEFAULT_ACTIVITY: ActivitiesOptions = {
   type: 'WATCHING',
-  name: 'you miss'
+  name: 'you miss',
 };
 
 const bot = new Client({
   allowedMentions: {
-    parse: ['roles', 'users']
+    parse: ['roles', 'users'],
   },
   intents: [
     Intents.FLAGS.GUILDS,
     Intents.FLAGS.GUILD_MESSAGES,
     Intents.FLAGS.DIRECT_MESSAGES,
-    Intents.FLAGS.DIRECT_MESSAGE_REACTIONS
+    Intents.FLAGS.DIRECT_MESSAGE_REACTIONS,
   ],
   presence: {
-    activities: [DEFAULT_ACTIVITY]
+    activities: [DEFAULT_ACTIVITY],
   },
   makeCache: Options.cacheWithLimits({
     ...Options.defaultMakeCacheSettings,
-    MessageManager: 0
-  })
+    MessageManager: 0,
+  }),
 });
 
 bot.on('raw', (event: RawEvent) => {
   if (event.t !== 'MESSAGE_REACTION_ADD') return;
-  handleCommand(Command.REACTION, undefined, event).catch((error) => console.error(error));
+  handleCommand(Command.REACTION, undefined, event).catch(console.error);
 });
 
 bot.on('messageCreate', (message) => {
@@ -46,11 +54,11 @@ bot.on('messageCreate', (message) => {
   if (!beatmapId) return;
 
   getCountryScores(beatmapId)
-    .then((data) => {
-      if (!data) return;
-      handleCountryScores(data).catch((error) => console.error(error));
+    .then((scores) => {
+      if (!scores) return;
+      return handleCountryScores(scores);
     })
-    .catch((error) => console.error(error));
+    .catch(console.error);
 });
 
 bot.on('interactionCreate', (interaction) => {
@@ -60,7 +68,7 @@ bot.on('interactionCreate', (interaction) => {
   const command: Command | undefined = Command[commandName.toUpperCase() as keyof typeof Command];
   if (command === undefined) return;
 
-  handleCommand(command, interaction).catch((error) => console.error(error));
+  handleCommand(command, interaction).catch(console.error);
 });
 
 async function createCommands() {
@@ -81,10 +89,9 @@ bot.on('ready', () => {
   if (curIndex === 0) return;
 
   // Continue rebuilding from the last saved index
-  getMapIds().then((rows) => {
-    createDatabase(rows, curIndex)
-      .catch((error) => console.error(error));
-  }).catch((error) => console.error(error));
+  getMapIds()
+    .then((rows) => createDatabase(rows, curIndex))
+    .catch(console.error);
 });
 
 bot.on('error', (error) => {
@@ -97,20 +104,16 @@ export function getBotId(): string | undefined {
 
 export async function send(
   channel: TextChannel | DMChannel | NewsChannel,
-  content: MessageOptions
+  content: MessageOptions,
 ): Promise<Message | Message[]> {
   return channel.send(content);
 }
 
 export async function publish(message: MessageOptions): Promise<(Message | Message[])[]> {
-  const channels = await Promise.all(
-    getLinkedChannels().map((channelId) => bot.channels.cache.get(channelId))
-  );
+  const channels = await Promise.all(getLinkedChannels().map((channelId) => bot.channels.cache.get(channelId)));
 
   const sendableChannels = channels.filter((channel) => {
-    return channel instanceof TextChannel ||
-      channel instanceof DMChannel ||
-      channel instanceof NewsChannel;
+    return channel instanceof TextChannel || channel instanceof DMChannel || channel instanceof NewsChannel;
   });
 
   const messages: (Message | Message[])[] = [];

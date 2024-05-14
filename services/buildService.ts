@@ -2,13 +2,15 @@ import fetch, { Response } from 'node-fetch';
 import { Message, MessageEmbed, MessageOptions } from 'discord.js';
 import ScoresResponse from '../classes/osuApi/scoresResponse';
 import {
-  getFirstPlaceForMap, bulkAddScoreRows, getMapWasSniped, getMapCount, bulkAddBeatmapRows
+  getFirstPlaceForMap,
+  bulkAddScoreRows,
+  getMapWasSniped,
+  getMapCount,
+  bulkAddBeatmapRows,
 } from './databaseService';
 import { publish, getUser, setActivity } from './discordService';
 import { getMatchingLinkedUsers } from './userLinkingService';
-import {
-  getFailedIds, saveSettings, setCurrentMapIndex, setFailedId, tryUnsetFailedId
-} from './settingsService';
+import { getFailedIds, saveSettings, setCurrentMapIndex, setFailedId, tryUnsetFailedId } from './settingsService';
 import Score from '../classes/database/score';
 import * as ApiScore from '../classes/osuApi/score';
 import { getBeatmapInfo, MODES } from './osuApiService';
@@ -25,10 +27,7 @@ function sleep(time: number) {
   return new Promise((resolve, reject) => setTimeout(reject, time));
 }
 
-async function parseResponse(
-  response: Response,
-  beatmapId: string
-): Promise<ApiScore.default[] | null> {
+async function parseResponse(response: Response, beatmapId: string): Promise<ApiScore.default[] | null> {
   if (response.status >= 400) {
     const responseText = await response.text();
     throw Error(`Request failed with status: ${response.status}, ${responseText}`);
@@ -44,12 +43,11 @@ async function parseResponse(
     score.beatmap = beatmapInfo;
   }
 
+  scores.sort((a, b) => b.total_score - a.total_score);
   return scores;
 }
 
-export async function getCountryScores(
-  beatmapId: string
-): Promise<ApiScore.default[] | null> {
+export async function getCountryScores(beatmapId: string): Promise<ApiScore.default[] | null> {
   const startTime = new Date();
   const sessionKey = process.env.SESSION_KEY1;
   if (!sessionKey) return null;
@@ -58,7 +56,9 @@ export async function getCountryScores(
   let requestError;
 
   try {
-    response = await fetch(`${OSU_URL}/beatmaps/${beatmapId}/scores?type=country`, { headers: { cookie: `osu_session=${sessionKey}` } });
+    response = await fetch(`${OSU_URL}/beatmaps/${beatmapId}/scores?type=country`, {
+      headers: { cookie: `osu_session=${sessionKey}` },
+    });
   } catch (error: unknown) {
     requestError = error;
   }
@@ -67,7 +67,11 @@ export async function getCountryScores(
   // Ensure at least 1.5 seconds elapse between each request
   const elapsedTime = new Date().getTime() - startTime.getTime();
   if (elapsedTime < 1500) {
-    try { await sleep(1500 - elapsedTime); } catch (error) { /* Do nothing */ }
+    try {
+      await sleep(1500 - elapsedTime);
+    } catch (error) {
+      /* Do nothing */
+    }
   }
 
   if (requestError) throw requestError;
@@ -76,10 +80,7 @@ export async function getCountryScores(
   return parseResponse(response, beatmapId);
 }
 
-function getMessageOptionsFromScores(
-  content: string,
-  scores: ApiScore.default[]
-): MessageOptions | null {
+function getMessageOptionsFromScores(content: string, scores: ApiScore.default[]): MessageOptions | null {
   if (scores.length === 0) return null;
   const firstPlace = scores[0];
   const { user, beatmap, statistics } = firstPlace;
@@ -138,39 +139,43 @@ function getMessageOptionsFromScores(
     }
   }
 
-  embed.addFields([{
-    name: `[ ${firstPlace.rank} ] ${mods} ${firstPlace.total_score.toLocaleString()} (${(firstPlace.accuracy * 100).toFixed(2)}%)`,
-    value: `${pp}[ ${firstPlace.max_combo}x${maxCombo} ] ${statisticsText}`,
-    inline: false
-  }]);
+  embed.addFields([
+    {
+      name: `[ ${firstPlace.rank} ] ${mods} ${firstPlace.total_score.toLocaleString()} (${(
+        firstPlace.accuracy * 100
+      ).toFixed(2)}%)`,
+      value: `${pp}[ ${firstPlace.max_combo}x${maxCombo} ] ${statisticsText}`,
+      inline: false,
+    },
+  ]);
 
   return {
     content,
-    embeds: [embed]
+    embeds: [embed],
   };
 }
 
 function notifyLinkedUsers(scores: ApiScore.default[], previousFirstPlace: Score) {
   const firstPlace = scores[0];
   if (scores.length === 1) return;
+
   const { playerId } = previousFirstPlace;
   if (playerId === parseInt(firstPlace.user.id, 10)) return;
+
   const messageOptions = getMessageOptionsFromScores(
     `You were sniped by ${firstPlace.user.username}\nReact with :white_check_mark: to remove this message`,
-    scores
+    scores,
   );
   if (messageOptions === null) return;
 
   getMatchingLinkedUsers(playerId)?.forEach((localUser) => {
-    getUser(localUser).then((user) => {
-      user?.send(messageOptions).catch((error) => console.error(error));
-    }).catch((error) => console.error(error));
+    getUser(localUser)
+      .then((user) => user?.send(messageOptions))
+      .catch(console.error);
   });
 }
 
-export async function handleCountryScores(
-  scores: ApiScore.default[]
-): Promise<MessageOptions | null> {
+export async function handleCountryScores(scores: ApiScore.default[]): Promise<MessageOptions | null> {
   if (scores.length === 0) return null;
   const firstPlace = scores[0];
   const { beatmap, user } = firstPlace;
@@ -215,7 +220,7 @@ export async function handleCountryScores(
 function finishCreatingDatabase() {
   progressMessages = [];
   setCurrentMapIndex(0);
-  saveSettings().catch((error) => console.error(error));
+  saveSettings().catch(console.error);
 
   const failedIdCount = getFailedIds().length;
   const failedMessage = failedIdCount > 0 ? `Failed to process ${failedIdCount} maps` : '';
@@ -223,21 +228,15 @@ function finishCreatingDatabase() {
   return publish({ content: `Done. ${failedMessage}` });
 }
 
-async function doRequest(
-  {
-    index,
-    idList,
-    startIndex,
-    totalLength,
-    rebuildFailed
-  }: {
-    index: number,
-    idList: string[],
-    startIndex: number,
-    totalLength: number,
-    rebuildFailed: boolean
-  }
-) {
+async function doRequest(params: {
+  index: number;
+  idList: string[];
+  startIndex: number;
+  totalLength: number;
+  rebuildFailed: boolean;
+}) {
+  const { index, idList, startIndex, totalLength, rebuildFailed } = params;
+
   const beatmapId = idList[index];
   const offsetIndex = index + 1 + startIndex;
   const failedIds = getFailedIds();
@@ -267,9 +266,7 @@ async function doRequest(
     } else {
       // This will throw if the timer expires before we get our scores
       // so it will always be of type Score[] | null
-      scores = await Promise.race(
-        [sleep(21000), getCountryScores(beatmapId)]
-      ) as ApiScore.default[] | null;
+      scores = (await Promise.race([sleep(21000), getCountryScores(beatmapId)])) as ApiScore.default[] | null;
     }
 
     tryUnsetFailedId(beatmapId);
@@ -304,11 +301,7 @@ async function getCountryScoresRetrying(tries: number, beatmapId: string): Promi
   }
 }
 
-export async function createDatabase(
-  ids: string[],
-  startIndex = 0,
-  rebuildFailed = false
-): Promise<void> {
+export async function createDatabase(ids: string[], startIndex = 0, rebuildFailed = false): Promise<void> {
   const messageList = await publish({ content: `Building: 0.00% (0 of ${ids.slice(startIndex).length})` });
   const messages = messageList.concat.apply([], messageList) as Message[];
 
@@ -326,7 +319,7 @@ export async function createDatabase(
   let index = 0;
   // Keep looping until shouldStop becomes true or we reach the end of the list
   // eslint-disable-next-line no-unmodified-loop-condition
-  while (!shouldStop && (index + 1 + startIndex) <= totalLength) {
+  while (!shouldStop && index + 1 + startIndex <= totalLength) {
     await doRequest({ index, idList, startIndex, totalLength, rebuildFailed });
     index += 1;
   }
