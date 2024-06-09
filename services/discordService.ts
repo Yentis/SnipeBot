@@ -14,7 +14,7 @@ import {
 } from 'discord.js';
 import RawEvent from '../interfaces/rawEvent';
 import { getLinkedChannels, getCurrentMapIndex } from './settingsService';
-import handleCommand, { getCommandData } from '../commands/manager';
+import handleCommand, { getCommandData, replyToInteraction } from '../commands/manager';
 import Command from '../enums/command';
 import { tryGetBeatmapFromMessage } from '../commands/utils';
 import { createDatabase, getCountryScores, handleCountryScores } from './buildService';
@@ -68,7 +68,10 @@ bot.on('interactionCreate', (interaction) => {
   const command: Command | undefined = Command[commandName.toUpperCase() as keyof typeof Command];
   if (command === undefined) return;
 
-  handleCommand(command, interaction).catch(console.error);
+  handleCommand(command, interaction).catch((error) => {
+    console.error(error);
+    replyToInteraction(interaction, { content: 'Something went wrong' }).catch(console.error);
+  });
 });
 
 async function createCommands() {

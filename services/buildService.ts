@@ -43,7 +43,14 @@ async function parseResponse(response: Response, beatmapId: string): Promise<Api
     score.beatmap = beatmapInfo;
   }
 
-  scores.sort((a, b) => b.total_score - a.total_score);
+  scores.sort((a, b) => {
+    if (a.total_score === b.total_score) {
+      return new Date(a.ended_at).getTime() - new Date(b.ended_at).getTime();
+    }
+
+    return b.total_score - a.total_score;
+  });
+
   return scores;
 }
 

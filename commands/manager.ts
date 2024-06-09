@@ -36,23 +36,18 @@ export default async function handleCommand(
     await onReaction(rawEvent);
     return;
   }
-  if (interaction === undefined) return;
 
-  // Defer after 1.5 seconds
-  const timeout = setTimeout(() => {
-    interaction.deferReply().catch(console.error);
-  }, 1500);
+  if (interaction === undefined) return;
+  await interaction.deferReply();
 
   // These commands are always available
   if (command === Command.ECHO) {
     await onEcho(interaction);
-    clearTimeout(timeout);
     return;
   }
 
   if (command === Command.LINKCHANNEL) {
     await onLinkChannel(interaction);
-    clearTimeout(timeout);
     return;
   }
 
@@ -61,13 +56,11 @@ export default async function handleCommand(
 
   if (channel === null) {
     await replyWithInvalidChannel(interaction);
-    clearTimeout(timeout);
     return;
   }
 
   if (!(channel instanceof DMChannel) && !getLinkedChannels().includes(channel.id)) {
     await replyWithInvalidChannel(interaction);
-    clearTimeout(timeout);
     return;
   }
 
@@ -114,8 +107,6 @@ export default async function handleCommand(
     default:
       break;
   }
-
-  clearTimeout(timeout);
 }
 
 function getUsernameOption(): ApplicationCommandChoicesData {
@@ -305,25 +296,27 @@ export function getCommandData(): Array<ApplicationCommandData> {
 export async function replyToInteraction(
   interaction: CommandInteraction,
   options: InteractionReplyOptions,
-): Promise<unknown> {
+): Promise<void> {
   if (interaction.deferred) {
     if (options?.ephemeral === true) {
       await interaction.deleteReply();
     }
 
-    return interaction.followUp(options);
+    await interaction.followUp(options);
+    return;
   }
 
-  return interaction.reply(options);
+  await interaction.reply(options);
 }
 
 export async function replyToInteractionApi(
   interaction: CommandInteraction,
   message: InteractionReplyOptions,
-): Promise<unknown> {
+): Promise<void> {
   if (interaction.deferred) {
-    return interaction.followUp(message);
+    await interaction.followUp(message);
+    return;
   }
 
-  return interaction.reply(message);
+  await interaction.reply(message);
 }

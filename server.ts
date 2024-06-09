@@ -7,11 +7,6 @@ import * as settingsService from './services/settingsService';
 import * as osuApiService from './services/osuApiService';
 import { getCountryScores } from './services/buildService';
 import { login } from './services/discordService';
-import { http } from 'follow-redirects';
-
-const server = http.createServer((_, res) => {
-  res.end('Hello, World!');
-});
 
 async function checkToken(): Promise<void> {
   await getCountryScores('53');
@@ -31,10 +26,6 @@ async function init(): Promise<void> {
   await checkToken();
 }
 
-server.listen(process.env.PORT, () => {
-  console.log('Listening on port 80');
-});
-
-/* init()
+init()
   .then(() => login())
-  .catch(console.error); */
+  .catch(console.error);
