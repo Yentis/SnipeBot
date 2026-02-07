@@ -5,13 +5,10 @@ import Score from '../classes/database/score';
 import Beatmap from '../classes/database/beatmap';
 import * as ApiScore from '../classes/osuApi/score';
 
-const mongoDbUser = process.env.MONGODB_USER;
-if (!mongoDbUser) throw Error('MONGODB_USER environment variable not defined!');
-const mongoDbPass = process.env.MONGODB_PASS;
-if (!mongoDbPass) throw Error('MONGODB_PASS environment variable not defined!');
+const mongoDbUrl = process.env.MONGODB_URL;
+if (!mongoDbUrl) throw Error('MONGODB_URL environment variable not defined!');
 
-const uri = `mongodb+srv://${mongoDbUser}:${mongoDbPass}@cluster0.himju.gcp.mongodb.net/osusnipebot?retryWrites=true&w=majority`;
-const client = new MongoClient(uri);
+const client = new MongoClient(mongoDbUrl);
 const BEATMAPS = 'Beatmaps';
 
 let db: Db | undefined;
@@ -19,7 +16,7 @@ let beatmapsCollection: Collection<Document> | undefined;
 
 function getDb(): Db {
   if (db) return db;
-  db = client.db();
+  db = client.db('osusnipebot');
   return db;
 }
 
