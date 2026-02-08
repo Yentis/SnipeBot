@@ -5,6 +5,7 @@ dotenv.config();
 import * as userLinkingService from './services/userLinkingService';
 import * as settingsService from './services/settingsService';
 import * as osuApiService from './services/osuApiService';
+import * as storageService from './services/storageService';
 import { getCountryScores } from './services/buildService';
 import { login } from './services/discordService';
 
@@ -17,6 +18,7 @@ async function init(): Promise<void> {
   const apiKey = process.env.API_KEY;
   if (!apiKey) throw Error('API_KEY environment variable not defined!');
 
+  await storageService.start();
   promises.push(osuApiService.updateBeatmapIds(apiKey));
   promises.push(userLinkingService.start());
   promises.push(settingsService.start());

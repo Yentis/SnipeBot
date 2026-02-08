@@ -1,12 +1,11 @@
-import { downloadFile, uploadFile } from './dropboxService';
+import { readFile, saveFile } from './storageService';
 
 const LINKED_USERS_FILE = 'users.json';
 
 let linkedUsers: Record<string, number> = {};
 
 export async function start(): Promise<void> {
-  const result: Record<string, number> = await downloadFile(LINKED_USERS_FILE);
-  if (result) linkedUsers = result;
+  linkedUsers = await readFile<Record<string, number>>(LINKED_USERS_FILE, {});
 }
 
 export function getLinkedUsers(): Record<string, number> {
@@ -18,7 +17,7 @@ export function getMatchingLinkedUsers(userId: number): Array<string> | null {
 }
 
 function saveLinkedUsers(): Promise<void> {
-  return uploadFile(LINKED_USERS_FILE, JSON.stringify(linkedUsers));
+  return saveFile(LINKED_USERS_FILE, JSON.stringify(linkedUsers));
 }
 
 export function linkUser(discordUserId: string, userId: number): boolean {

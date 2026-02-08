@@ -126,3 +126,5 @@ tags
 .idea/
 node_modules/
 info.txt
+
+storage/

@@ -1,17 +1,15 @@
 import Settings from '../classes/settings';
-import { downloadFile, uploadFile } from './dropboxService';
+import { readFile, saveFile } from './storageService';
 
 const SETTINGS_FILE = 'settings.json';
 let settings = new Settings();
 
 export async function start(): Promise<void> {
-  const result: Settings = await downloadFile(SETTINGS_FILE);
-  if (!result) return;
-  settings = result;
+  settings = await readFile(SETTINGS_FILE, new Settings());
 }
 
 export async function saveSettings(): Promise<void> {
-  await uploadFile(SETTINGS_FILE, JSON.stringify(settings));
+  await saveFile(SETTINGS_FILE, JSON.stringify(settings));
 }
 
 export function getLinkedChannels(): string[] {

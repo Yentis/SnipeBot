@@ -5,7 +5,7 @@ import LocalUser from '../classes/localUser';
 import UserResponse from '../classes/userResponse';
 import { OSU_URL } from './buildService';
 import { bulkAddBeatmapRows, connect, getMapCount, getNewestMap } from './databaseService';
-import { downloadFile, uploadFile } from './dropboxService';
+import { readFile, saveFile } from './storageService';
 
 export const MODES = ['osu!', 'osu!taiko', 'osu!catch', 'osu!mania'];
 const CACHED_USERS_FILE = 'cachedUsers.json';
@@ -17,8 +17,7 @@ let apiKey: string;
 let lastDbSize = 0;
 
 export async function start(): Promise<void> {
-  const result: Record<string, string> = await downloadFile(CACHED_USERS_FILE);
-  if (result) cachedUsers = result;
+  cachedUsers = await readFile<Record<string, string>>(CACHED_USERS_FILE, {});
 }
 
 // User may be either a username or a userId
@@ -48,7 +47,7 @@ export async function getUser(user: string): Promise<LocalUser | null> {
   const fetchedUser = body[0];
   cachedUsers[fetchedUser.user_id] = fetchedUser.username;
 
-  uploadFile(CACHED_USERS_FILE, JSON.stringify(cachedUsers)).catch(console.error);
+  saveFile(CACHED_USERS_FILE, JSON.stringify(cachedUsers)).catch(console.error);
   return new LocalUser(fetchedUser.user_id, fetchedUser.username);
 }
 
