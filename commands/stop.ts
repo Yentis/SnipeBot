@@ -1,10 +1,10 @@
 import { CommandInteraction } from 'discord.js';
 import { stopBuilding } from '../services/buildService';
 import { replyToInteraction } from './manager';
-import { isOwner, replyWithNoPermission } from './utils';
+import { isMod, replyWithNoPermission } from './utils';
 
 export default async function run(interaction: CommandInteraction): Promise<void> {
-  if (!isOwner(interaction.user.id)) {
+  if (!isMod(interaction.member)) {
     await replyWithNoPermission(interaction);
     return;
   }

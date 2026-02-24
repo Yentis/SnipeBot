@@ -18,7 +18,6 @@ export const Mode: Record<string, number> = {
   ctb: 2,
   mania: 3
 };
-const OWNER_ID = 68834122860077056;
 
 export async function tryGetUser(user: User): Promise<LocalUser | null> {
   const userId = getLinkedUsers()[user.id];
@@ -56,10 +55,6 @@ export function tryGetBeatmapFromMessage(message: Message, botId: string | null)
 export function isMod(member: unknown): boolean {
   if (!(member instanceof GuildMember)) return false;
   return member.permissions.has('KICK_MEMBERS') === true;
-}
-
-export function isOwner(id: string): boolean {
-  return parseInt(id, 10) === OWNER_ID;
 }
 
 export async function replyWithInvalidChannel(interaction: CommandInteraction): Promise<void> {

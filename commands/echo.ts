@@ -5,11 +5,11 @@ import { EchoOptions } from '../enums/command';
 import { replyToInteraction } from './manager';
 import {
   getOrCreateDMChannel,
-  isMod, isOwner, replyWithInvalidChannel, replyWithNoPermission
+  isMod, replyWithInvalidChannel, replyWithNoPermission
 } from './utils';
 
 export default async function run(interaction: CommandInteraction): Promise<void> {
-  if (!isMod(interaction.member) && !isOwner(interaction.user.id)) {
+  if (!isMod(interaction.member)) {
     await replyWithNoPermission(interaction);
     return;
   }
