@@ -19,6 +19,9 @@ export const Mode: Record<string, number> = {
   mania: 3
 };
 
+const ownerId = process.env.OWNER_ID;
+if (!ownerId) console.warn('OWNER_ID environment variable not defined!');
+
 export async function tryGetUser(user: User): Promise<LocalUser | null> {
   const userId = getLinkedUsers()[user.id];
   if (userId !== undefined) return getUser(userId.toString());
@@ -50,6 +53,10 @@ export function tryGetBeatmapFromMessage(message: Message, botId: string | null)
 
   const split = url.split('/');
   return split[split.length - 1].replace('/', '');
+}
+
+export function isOwner(id: string): boolean {
+  return id === ownerId;
 }
 
 export function isMod(member: unknown): boolean {
