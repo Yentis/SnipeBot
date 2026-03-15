@@ -1,64 +1,83 @@
 import Settings from '../classes/settings';
-import { readFile, saveFile } from './storageService';
+import storageService from './storageService';
+import { Service } from '../interfaces/service';
 
 const SETTINGS_FILE = 'settings.json';
-let settings = new Settings();
 
-export async function start(): Promise<void> {
-  settings = await readFile(SETTINGS_FILE, new Settings());
+class SettingsService extends Service {
+  private settings = new Settings();
+
+  async start(): Promise<void> {
+    this.settings = await storageService.readFile(SETTINGS_FILE, new Settings());
+  }
+
+  async saveSettings(): Promise<void> {
+    await storageService.saveFile(SETTINGS_FILE, JSON.stringify(this.settings));
+  }
+
+  getLinkedChannels(): string[] {
+    return this.settings.linkedChannels;
+  }
+
+  addLinkedChannel(channelId: string): boolean {
+    if (this.settings.linkedChannels.includes(channelId)) return false;
+
+    this.settings.linkedChannels.push(channelId);
+    this.saveSettings().catch(console.error);
+
+    return true;
+  }
+
+  removeLinkedChannel(channelId: string): boolean {
+    const linkedChannelId = this.settings.linkedChannels.indexOf(channelId);
+    if (linkedChannelId === -1) return false;
+
+    this.settings.linkedChannels.splice(linkedChannelId, 1);
+    this.saveSettings().catch(console.error);
+
+    return true;
+  }
+
+  getFailedIds(): string[] {
+    return this.settings.failedIds;
+  }
+
+  setFailedId(id: string): void {
+    if (this.settings.failedIds.includes(id)) return;
+    this.settings.failedIds.push(id);
+  }
+
+  clearFailedIds(): void {
+    this.settings.failedIds = [];
+  }
+
+  tryUnsetFailedId(id: string): void {
+    const index = this.settings.failedIds.indexOf(id);
+    if (index === -1) return;
+
+    this.settings.failedIds.splice(index, 1);
+  }
+
+  getCurrentMapIndex(): number {
+    return this.settings.curIndex;
+  }
+
+  setCurrentMapIndex(index: number): void {
+    this.settings.curIndex = index;
+  }
+
+  getLastProcessedScore(): number | undefined {
+    return this.settings.lastProcessedScore;
+  }
+
+  setLastProcessedScore(score: number): void {
+    this.settings.lastProcessedScore = score;
+  }
+
+  override stop(): void {
+    // Do nothing
+  }
 }
 
-export async function saveSettings(): Promise<void> {
-  await saveFile(SETTINGS_FILE, JSON.stringify(settings));
-}
-
-export function getLinkedChannels(): string[] {
-  return settings.linkedChannels;
-}
-
-export function addLinkedChannel(channelId: string): boolean {
-  if (settings.linkedChannels.includes(channelId)) return false;
-
-  settings.linkedChannels.push(channelId);
-  saveSettings().catch(console.error);
-
-  return true;
-}
-
-export function removeLinkedChannel(channelId: string): boolean {
-  const linkedChannelId = settings.linkedChannels.indexOf(channelId);
-  if (linkedChannelId === -1) return false;
-
-  settings.linkedChannels.splice(linkedChannelId, 1);
-  saveSettings().catch(console.error);
-
-  return true;
-}
-
-export function getFailedIds(): string[] {
-  return settings.failedIds;
-}
-
-export function setFailedId(id: string): void {
-  if (settings.failedIds.includes(id)) return;
-  settings.failedIds.push(id);
-}
-
-export function clearFailedIds(): void {
-  settings.failedIds = [];
-}
-
-export function tryUnsetFailedId(id: string): void {
-  const index = settings.failedIds.indexOf(id);
-  if (index === -1) return;
-
-  settings.failedIds.splice(index, 1);
-}
-
-export function getCurrentMapIndex(): number {
-  return settings.curIndex;
-}
-
-export function setCurrentMapIndex(index: number): void {
-  settings.curIndex = index;
-}
+const settingsService = new SettingsService();
+export default settingsService;

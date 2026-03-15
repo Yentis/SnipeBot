@@ -1,5 +1,5 @@
 import { CommandInteraction } from 'discord.js';
-import { addLinkedChannel } from '../services/settingsService';
+import settingsService from '../services/settingsService';
 import { replyToInteraction } from './manager';
 import { isMod, replyWithInvalidChannel, replyWithNoPermission } from './utils';
 
@@ -14,7 +14,7 @@ export default async function run(interaction: CommandInteraction): Promise<void
     return;
   }
 
-  const added = addLinkedChannel(interaction.channel.id);
+  const added = settingsService.addLinkedChannel(interaction.channel.id);
   if (added) await replyToInteraction(interaction, { content: 'This channel can now be used by the bot', ephemeral: true });
   else await replyToInteraction(interaction, { content: 'This channel is already linked', ephemeral: true });
 }

@@ -1,39 +1,49 @@
-import { readFile, saveFile } from './storageService';
+import storageService from './storageService';
+import { Service } from '../interfaces/service';
 
 const LINKED_USERS_FILE = 'users.json';
 
-let linkedUsers: Record<string, number> = {};
+class UserLinkingService extends Service {
+  private linkedUsers: Record<string, number> = {};
 
-export async function start(): Promise<void> {
-  linkedUsers = await readFile<Record<string, number>>(LINKED_USERS_FILE, {});
+  async start(): Promise<void> {
+    this.linkedUsers = await storageService.readFile<Record<string, number>>(LINKED_USERS_FILE, {});
+  }
+
+  getLinkedUsers(): Record<string, number> {
+    return this.linkedUsers;
+  }
+
+  getMatchingLinkedUsers(userId: number): Array<string> | null {
+    return Object.keys(this.linkedUsers).filter((key) => this.linkedUsers[key] === userId) || null;
+  }
+
+  private saveLinkedUsers(): Promise<void> {
+    return storageService.saveFile(LINKED_USERS_FILE, JSON.stringify(this.linkedUsers));
+  }
+
+  linkUser(discordUserId: string, userId: number): boolean {
+    if (this.linkedUsers[discordUserId] === userId) return false;
+
+    this.linkedUsers[discordUserId] = userId;
+    this.saveLinkedUsers().catch(console.error);
+
+    return true;
+  }
+
+  unlinkUser(discordUserId: string): boolean {
+    if (!this.linkedUsers[discordUserId]) return false;
+
+    delete this.linkedUsers[discordUserId];
+    this.saveLinkedUsers().catch(console.error);
+
+    return true;
+  }
+
+  override stop(): void {
+    // Do nothing
+  }
 }
 
-export function getLinkedUsers(): Record<string, number> {
-  return linkedUsers;
-}
-
-export function getMatchingLinkedUsers(userId: number): Array<string> | null {
-  return Object.keys(linkedUsers).filter((key) => linkedUsers[key] === userId) || null;
-}
-
-function saveLinkedUsers(): Promise<void> {
-  return saveFile(LINKED_USERS_FILE, JSON.stringify(linkedUsers));
-}
-
-export function linkUser(discordUserId: string, userId: number): boolean {
-  if (linkedUsers[discordUserId] === userId) return false;
-
-  linkedUsers[discordUserId] = userId;
-  saveLinkedUsers().catch(console.error);
-
-  return true;
-}
-
-export function unlinkUser(discordUserId: string): boolean {
-  if (!linkedUsers[discordUserId]) return false;
-
-  delete linkedUsers[discordUserId];
-  saveLinkedUsers().catch(console.error);
-
-  return true;
-}
+const userLinkingService = new UserLinkingService();
+export default userLinkingService;

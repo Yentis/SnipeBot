@@ -1,19 +1,13 @@
 import fetch, { Response } from 'node-fetch';
 import { Message, MessageEmbed, MessageOptions } from 'discord.js';
 import ScoresResponse from '../classes/osuApi/scoresResponse';
-import {
-  getFirstPlaceForMap,
-  bulkAddScoreRows,
-  getMapWasSniped,
-  getMapCount,
-  bulkAddBeatmapRows,
-} from './databaseService';
-import { publish, getUser, setActivity } from './discordService';
-import { getMatchingLinkedUsers } from './userLinkingService';
-import { getFailedIds, saveSettings, setCurrentMapIndex, setFailedId, tryUnsetFailedId } from './settingsService';
+import databaseService from './databaseService';
+import discordService from './discordService';
+import userLinkingService from './userLinkingService';
+import settingsService from './settingsService';
 import Score from '../classes/database/score';
 import * as ApiScore from '../classes/osuApi/score';
-import { getBeatmapInfo, MODES } from './osuApiService';
+import osuApiService, { MODES } from './osuApiService';
 import { Mode } from '../commands/utils';
 import Statistics from '../classes/osuApi/statistics';
 
@@ -37,7 +31,7 @@ async function parseResponse(response: Response, beatmapId: string): Promise<Api
   const { scores } = responseJson as ScoresResponse;
   if (!scores) throw Error(`Failed to read scores in response: ${JSON.stringify(responseJson)}`);
 
-  const beatmapInfo = await getBeatmapInfo(beatmapId);
+  const beatmapInfo = await osuApiService.getBeatmapInfo(beatmapId);
   for (let i = 0; i < scores.length; i += 1) {
     const score = scores[i];
     score.beatmap = beatmapInfo;
@@ -175,8 +169,8 @@ function notifyLinkedUsers(scores: ApiScore.default[], previousFirstPlace: Score
   );
   if (messageOptions === null) return;
 
-  getMatchingLinkedUsers(playerId)?.forEach((localUser) => {
-    getUser(localUser)
+  userLinkingService.getMatchingLinkedUsers(playerId)?.forEach((localUser) => {
+    discordService.getUser(localUser)
       .then((user) => user?.send(messageOptions))
       .catch(console.error);
   });
@@ -191,9 +185,9 @@ export async function handleCountryScores(scores: ApiScore.default[]): Promise<M
   const beatmapId = beatmap ? parseInt(beatmap.beatmap_id, 10) : undefined;
   if (!beatmapId) return null;
 
-  const entry = await getFirstPlaceForMap(beatmapId);
+  const entry = await databaseService.getFirstPlaceForMap(beatmapId);
   if (!entry && beatmap) {
-    await bulkAddBeatmapRows([beatmap]);
+    await databaseService.bulkAddBeatmapRows([beatmap]);
   }
 
   const score = entry?.firstPlace;
@@ -201,15 +195,15 @@ export async function handleCountryScores(scores: ApiScore.default[]): Promise<M
     const messageOptions = getMessageOptionsFromScores(`New first place is ${user.username}`, scores);
     if (messageOptions === null) return null;
 
-    await publish(messageOptions);
-    await bulkAddScoreRows(beatmapId, scores.slice(0, count));
+    await discordService.publish(messageOptions);
+    await databaseService.bulkAddScoreRows(beatmapId, scores.slice(0, count));
     return null;
   }
 
-  await bulkAddScoreRows(beatmapId, scores.slice(0, count));
+  await databaseService.bulkAddScoreRows(beatmapId, scores.slice(0, count));
   const oldDate = score.date;
 
-  const mapWasSniped = await getMapWasSniped(beatmapId, oldDate, new Date(firstPlace.ended_at));
+  const mapWasSniped = await databaseService.getMapWasSniped(beatmapId, oldDate, new Date(firstPlace.ended_at));
   if (!mapWasSniped) {
     return getMessageOptionsFromScores(`First place is ${user.username}`, scores);
   }
@@ -219,20 +213,20 @@ export async function handleCountryScores(scores: ApiScore.default[]): Promise<M
 
   const messageOptions = getMessageOptionsFromScores(`${score.playerName} was sniped by ${user.username}`, scores);
   if (messageOptions === null) return null;
-  await publish(messageOptions);
+  await discordService.publish(messageOptions);
 
   return null;
 }
 
 function finishCreatingDatabase() {
   progressMessages = [];
-  setCurrentMapIndex(0);
-  saveSettings().catch(console.error);
+  settingsService.setCurrentMapIndex(0);
+  settingsService.saveSettings().catch(console.error);
 
-  const failedIdCount = getFailedIds().length;
+  const failedIdCount = settingsService.getFailedIds().length;
   const failedMessage = failedIdCount > 0 ? `Failed to process ${failedIdCount} maps` : '';
-  setActivity();
-  return publish({ content: `Done. ${failedMessage}` });
+  discordService.setActivity();
+  return discordService.publish({ content: `Done. ${failedMessage}` });
 }
 
 async function doRequest(params: {
@@ -246,9 +240,9 @@ async function doRequest(params: {
 
   const beatmapId = idList[index];
   const offsetIndex = index + 1 + startIndex;
-  const failedIds = getFailedIds();
+  const failedIds = settingsService.getFailedIds();
 
-  setCurrentMapIndex(offsetIndex);
+  settingsService.setCurrentMapIndex(offsetIndex);
   console.info(`Processing ${beatmapId} | ${offsetIndex} of ${totalLength}`);
 
   const progress = ((offsetIndex / totalLength) * 100).toFixed(2);
@@ -264,7 +258,7 @@ async function doRequest(params: {
     console.error(error);
   }
 
-  setActivity({ type: 'WATCHING', name: `${progress}%` });
+  discordService.setActivity({ type: 'WATCHING', name: `${progress}%` });
 
   let scores: ApiScore.default[] | null = null;
   try {
@@ -276,10 +270,10 @@ async function doRequest(params: {
       scores = (await Promise.race([sleep(21000), getCountryScores(beatmapId)])) as ApiScore.default[] | null;
     }
 
-    tryUnsetFailedId(beatmapId);
+    settingsService.tryUnsetFailedId(beatmapId);
   } catch (error) {
     console.error(error);
-    setFailedId(beatmapId);
+    settingsService.setFailedId(beatmapId);
   }
 
   if (scores) await handleCountryScores(scores);
@@ -287,7 +281,7 @@ async function doRequest(params: {
   // Save our settings every 50 processed maps
   if (index % 50 === 0) {
     try {
-      await saveSettings();
+      await settingsService.saveSettings();
     } catch (error) {
       console.error(error);
     }
@@ -296,7 +290,7 @@ async function doRequest(params: {
 
 async function getCountryScoresRetrying(tries: number, beatmapId: string): Promise<ApiScore.default[] | null> {
   if (tries >= 3) {
-    setFailedId(beatmapId);
+    settingsService.setFailedId(beatmapId);
     return null;
   }
 
@@ -309,10 +303,9 @@ async function getCountryScoresRetrying(tries: number, beatmapId: string): Promi
 }
 
 export async function createDatabase(ids: string[], startIndex = 0, rebuildFailed = false): Promise<void> {
-  const messageList = await publish({ content: `Building: 0.00% (0 of ${ids.slice(startIndex).length})` });
-  const messages = messageList.concat.apply([], messageList) as Message[];
+  const messageList = await discordService.publish({ content: `Building: 0.00% (0 of ${ids.slice(startIndex).length})` });
 
-  progressMessages = messages;
+  progressMessages = messageList.concat.apply([], messageList) as Message[];
   shouldStop = false;
 
   // Get the ids starting from where we left off
@@ -321,10 +314,10 @@ export async function createDatabase(ids: string[], startIndex = 0, rebuildFaile
     await finishCreatingDatabase();
     return;
   }
-  const totalLength = rebuildFailed ? idList.length : await getMapCount();
+  const totalLength = rebuildFailed ? idList.length : await databaseService.getMapCount();
 
   let index = 0;
-  // Keep looping until shouldStop becomes true or we reach the end of the list
+  // Keep looping until shouldStop becomes true, or we reach the end of the list
   // eslint-disable-next-line no-unmodified-loop-condition
   while (!shouldStop && index + 1 + startIndex <= totalLength) {
     await doRequest({ index, idList, startIndex, totalLength, rebuildFailed });

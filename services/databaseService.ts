@@ -4,266 +4,259 @@ import BeatmapResponse from '../classes/osuApi/beatmapResponse';
 import Score from '../classes/database/score';
 import Beatmap from '../classes/database/beatmap';
 import * as ApiScore from '../classes/osuApi/score';
+import { Service } from '../interfaces/service';
 
-const mongoDbUrl = process.env.MONGODB_URL;
-if (!mongoDbUrl) throw Error('MONGODB_URL environment variable not defined!');
-
-const client = new MongoClient(mongoDbUrl);
 const BEATMAPS = 'Beatmaps';
 
-let db: Db | undefined;
-let beatmapsCollection: Collection<Document> | undefined;
+class DatabaseService extends Service {
+  private client!: MongoClient;
+  private db: Db | undefined;
+  private beatmapsCollection: Collection<Document> | undefined;
 
-function getDb(): Db {
-  if (db) return db;
-  db = client.db('osusnipebot');
-  return db;
-}
+  async start(): Promise<void> {
+    const mongoDbUrl = process.env.MONGODB_URL;
+    if (!mongoDbUrl) throw Error('MONGODB_URL environment variable not defined!');
 
-function getBeatmapsCollection(): Collection<Document> {
-  if (beatmapsCollection) return beatmapsCollection;
-  beatmapsCollection = getDb().collection(BEATMAPS);
-  return beatmapsCollection;
-}
+    this.client = new MongoClient(mongoDbUrl);
+    await Promise.resolve();
+  }
 
-async function initDB(): Promise<void> {
-  const db = getDb();
-  const collections = await db.listCollections().toArray();
+  private getDb(): Db {
+    if (this.db) return this.db;
+    this.db = this.client.db('osusnipebot');
+    return this.db;
+  }
 
-  const tableExists = collections?.some((collection) => collection.name === BEATMAPS);
-  if (tableExists) return;
+  private getBeatmapsCollection(): Collection<Document> {
+    if (this.beatmapsCollection) return this.beatmapsCollection;
+    this.beatmapsCollection = this.getDb().collection(BEATMAPS);
+    return this.beatmapsCollection;
+  }
 
-  await db.createCollection(BEATMAPS, {
-    validator: {
-      $jsonSchema: {
-        bsonType: 'object',
-        required: ['artist', 'difficulty', 'title', 'version', 'mode', 'approvedDate'],
-        properties: {
-          artist: {
-            bsonType: 'string',
-            description: 'Song artist; required.',
-          },
-          difficulty: {
-            bsonType: 'string',
-            description: 'Map difficulty; required.',
-          },
-          title: {
-            bsonType: 'string',
-            description: 'Song title; required.',
-          },
-          version: {
-            bsonType: 'string',
-            description: 'Map difficulty name; required.',
-          },
-          mode: {
-            bsonType: 'string',
-            description: 'Map gamemode; required.',
-          },
-          approvedDate: {
-            bsonType: 'date',
-            description: 'Map approved date; required.',
-          },
-          scores: {
-            bsonType: 'array',
-            description: 'Scores for this map.',
+  private async initDB(): Promise<void> {
+    const db = this.getDb();
+    const collections = await db.listCollections().toArray();
+
+    const tableExists = collections?.some((collection) => collection.name === BEATMAPS);
+    if (tableExists) return;
+
+    await db.createCollection(BEATMAPS, {
+      validator: {
+        $jsonSchema: {
+          bsonType: 'object',
+          required: ['artist', 'difficulty', 'title', 'version', 'mode', 'approvedDate'],
+          properties: {
+            artist: {
+              bsonType: 'string',
+              description: 'Song artist; required.',
+            },
+            difficulty: {
+              bsonType: 'string',
+              description: 'Map difficulty; required.',
+            },
+            title: {
+              bsonType: 'string',
+              description: 'Song title; required.',
+            },
+            version: {
+              bsonType: 'string',
+              description: 'Map difficulty name; required.',
+            },
+            mode: {
+              bsonType: 'string',
+              description: 'Map gamemode; required.',
+            },
+            approvedDate: {
+              bsonType: 'date',
+              description: 'Map approved date; required.',
+            },
+            scores: {
+              bsonType: 'array',
+              description: 'Scores for this map.',
+            },
           },
         },
       },
-    },
-  });
-}
-
-function toISODate(date: Date) {
-  const year = date.getUTCFullYear();
-  const month = `00${date.getUTCMonth() + 1}`.slice(-2);
-  const day = `00${date.getUTCDate()}`.slice(-2);
-  const hours = `00${date.getUTCHours()}`.slice(-2);
-  const minutes = `00${date.getUTCMinutes()}`.slice(-2);
-  const seconds = `00${date.getUTCSeconds()}`.slice(-2);
-
-  return `${year}-${month}-${day} ${hours}:${minutes}:${seconds}`;
-}
-
-export async function connect(): Promise<void> {
-  await client.connect();
-  await initDB();
-}
-
-export async function getNewestMap(): Promise<string | null> {
-  const results = (await getBeatmapsCollection()
-    .find()
-    .project({ _id: 0, approvedDate: 1 })
-    .sort({ approvedDate: -1 })
-    .limit(1)
-    .toArray()) as { approvedDate: Date }[];
-
-  if (results.length === 0) return null;
-  return toISODate(results[0].approvedDate);
-}
-
-export async function bulkAddBeatmapRows(maps: BeatmapResponse[]): Promise<void> {
-  const beatmaps = maps
-    .filter((map) => {
-      return map.approved !== '3';
-    })
-    .map((map) => {
-      return new BeatmapAddRequest({
-        filter: {
-          _id: map.beatmap_id,
-        },
-        update: {
-          $set: new Beatmap(
-            map.artist,
-            parseFloat(map.difficultyrating).toFixed(2),
-            map.title,
-            map.version,
-            map.mode,
-            new Date(`${map.approved_date}Z`),
-          ),
-        },
-        upsert: true,
-      });
     });
+  }
 
-  if (beatmaps.length === 0) return;
-  await getBeatmapsCollection().bulkWrite(beatmaps);
-}
+  private toISODate(date: Date) {
+    const year = date.getUTCFullYear();
+    const month = `00${date.getUTCMonth() + 1}`.slice(-2);
+    const day = `00${date.getUTCDate()}`.slice(-2);
+    const hours = `00${date.getUTCHours()}`.slice(-2);
+    const minutes = `00${date.getUTCMinutes()}`.slice(-2);
+    const seconds = `00${date.getUTCSeconds()}`.slice(-2);
 
-export function getMapCount(): Promise<number> {
-  return getBeatmapsCollection().countDocuments();
-}
+    return `${year}-${month}-${day} ${hours}:${minutes}:${seconds}`;
+  }
 
-export async function getFirstPlaceForMap(mapId: number): Promise<{ firstPlace: Score } | null> {
-  const results = (await getBeatmapsCollection()
-    .find({ _id: mapId.toString() })
-    .project({ _id: 0, firstPlace: 1 })
-    .toArray()) as { firstPlace: Score }[];
+  async connect(): Promise<void> {
+    await this.client.connect();
+    await this.initDB();
+  }
 
-  if (results.length === 0) return null;
-  return results[0];
-}
+  async getNewestMap(): Promise<string | null> {
+    const results = (await this.getBeatmapsCollection()
+      .find()
+      .project({ _id: 0, approvedDate: 1 })
+      .sort({ approvedDate: -1 })
+      .limit(1)
+      .toArray()) as { approvedDate: Date }[];
 
-export async function bulkAddScoreRows(mapId: number, scores: ApiScore.default[]): Promise<void> {
-  let firstPlace: Score | undefined;
+    if (results.length === 0) return null;
+    return this.toISODate(results[0].approvedDate);
+  }
 
-  const scoreList = scores.map((score) => {
-    const playerScore = new Score(
-      parseInt(score.user.id, 10),
-      score.user.username,
-      new Date(score.ended_at),
-      score.total_score,
-    );
+  async bulkAddBeatmapRows(maps: BeatmapResponse[]): Promise<void> {
+    const beatmaps = maps
+      .filter((map) => {
+        return map.approved !== '3';
+      })
+      .map((map) => {
+        return new BeatmapAddRequest({
+          filter: {
+            _id: map.beatmap_id,
+          },
+          update: {
+            $set: new Beatmap(
+              map.artist,
+              parseFloat(map.difficultyrating).toFixed(2),
+              map.title,
+              map.version,
+              map.mode,
+              new Date(`${map.approved_date}Z`),
+            ),
+          },
+          upsert: true,
+        });
+      });
 
-    if (!firstPlace) {
+    if (beatmaps.length === 0) return;
+    await this.getBeatmapsCollection().bulkWrite(beatmaps);
+  }
+
+  getMapCount(): Promise<number> {
+    return this.getBeatmapsCollection().countDocuments();
+  }
+
+  async getFirstPlaceForMap(mapId: number): Promise<{ firstPlace: Score } | null> {
+    const results = (await this.getBeatmapsCollection()
+      .find({ _id: mapId.toString() })
+      .project({ _id: 0, firstPlace: 1 })
+      .toArray()) as { firstPlace: Score }[];
+
+    if (results.length === 0) return null;
+    return results[0];
+  }
+
+  async bulkAddScoreRows(mapId: number, scores: ApiScore.default[]): Promise<void> {
+    let firstPlace: Score | undefined;
+
+    const scoreList = scores.map((score) => {
+      const playerScore = new Score(
+        parseInt(score.user.id, 10),
+        score.user.username,
+        new Date(score.ended_at),
+        score.total_score,
+      );
+
+      if (!firstPlace) {
+        firstPlace = playerScore;
+        return playerScore;
+      }
+
+      if (Score.getScore(playerScore) < Score.getScore(firstPlace)) return playerScore;
+      if (playerScore.score === firstPlace.score && playerScore.date > firstPlace.date) return playerScore;
+
       firstPlace = playerScore;
       return playerScore;
-    }
-
-    if (Score.getScore(playerScore) < Score.getScore(firstPlace)) return playerScore;
-    if (playerScore.score === firstPlace.score && playerScore.date > firstPlace.date) return playerScore;
-
-    firstPlace = playerScore;
-    return playerScore;
-  });
-
-  await getBeatmapsCollection().updateOne({ _id: mapId.toString() }, { $set: { scores: scoreList, firstPlace } });
-}
-
-export async function getMapWasSniped(mapId: number, oldDate: Date, newDate: Date): Promise<boolean> {
-  const results = (await getBeatmapsCollection()
-    .find({ _id: mapId.toString() })
-    .project({ _id: 0, scores: 1 })
-    .toArray()) as { scores: Score[] }[];
-  if (results.length === 0 || !results[0].scores) return false;
-
-  const { scores } = results[0];
-  if (scores.length === 0) return false;
-
-  return scores.some((score) => score.date >= oldDate && score.date < newDate);
-}
-
-export function getMapsWithNoScores(mode: number): Promise<Beatmap[]> {
-  return getBeatmapsCollection()
-    .find({ mode: mode.toString(), scores: { $exists: false } })
-    .sort({ difficulty: -1 })
-    .project({ scores: 0 })
-    .toArray() as Promise<Beatmap[]>;
-}
-
-export function getFirstPlacesForPlayer(playerId: number, mode: number): Promise<Beatmap[]> {
-  return getBeatmapsCollection()
-    .find({ 'firstPlace.playerId': playerId, mode: mode.toString() })
-    .sort({ difficulty: -1 })
-    .project({ scores: 0 })
-    .toArray() as Promise<Beatmap[]>;
-}
-
-export async function getFirstPlaceTop(mode: number, count: number): Promise<{ playerName: string; count: number }[]> {
-  const ranking: Record<string, number> = {};
-
-  await getBeatmapsCollection()
-    .find({ mode: mode.toString(), firstPlace: { $exists: true } })
-    .project({ _id: 0, 'firstPlace.playerName': 1 })
-    .forEach((data) => {
-      const playerName = (data as Beatmap).firstPlace?.playerName;
-      if (!playerName) return;
-
-      if (ranking[playerName]) {
-        ranking[playerName] += 1;
-      } else {
-        ranking[playerName] = 1;
-      }
     });
 
-  const keys = Object.keys(ranking);
-  keys.sort((a, b) => ranking[b] - ranking[a]);
-
-  const topList = keys.map((key) => ({
-    playerName: key,
-    count: ranking[key],
-  }));
-
-  return topList.slice(0, count);
-}
-
-export async function getMapsForPlayer(playerId: string, mode: number): Promise<Beatmap[]> {
-  const beatmaps = await getBeatmapsCollection()
-    .find({ mode: mode.toString(), 'scores.playerId': parseInt(playerId, 10) })
-    .project({ firstplace: 0 })
-    .toArray();
-
-  return beatmaps as Beatmap[];
-}
-
-export async function getMapIds(): Promise<string[]> {
-  const mapIds = await getBeatmapsCollection()
-    .find()
-    .project({ _id: 1 })
-    .map((document) => {
-      const beatmap = document as { _id: string };
-      return beatmap._id;
-    })
-    .toArray();
-
-  return mapIds;
-}
-
-function exitHandler(options: { cleanup?: boolean; exit?: boolean }) {
-  if (options.cleanup) {
-    console.info('Closing connection');
-    client.close().catch(console.error);
+    await this.getBeatmapsCollection().updateOne({ _id: mapId.toString() }, { $set: { scores: scoreList, firstPlace } });
   }
-  if (options.exit) process.exit();
+
+  async getMapWasSniped(mapId: number, oldDate: Date, newDate: Date): Promise<boolean> {
+    const results = (await this.getBeatmapsCollection()
+      .find({ _id: mapId.toString() })
+      .project({ _id: 0, scores: 1 })
+      .toArray()) as { scores: Score[] }[];
+    if (results.length === 0 || !results[0].scores) return false;
+
+    const { scores } = results[0];
+    if (scores.length === 0) return false;
+
+    return scores.some((score) => score.date >= oldDate && score.date < newDate);
+  }
+
+  getMapsWithNoScores(mode: number): Promise<Beatmap[]> {
+    return this.getBeatmapsCollection()
+      .find({ mode: mode.toString(), scores: { $exists: false } })
+      .sort({ difficulty: -1 })
+      .project({ scores: 0 })
+      .toArray() as Promise<Beatmap[]>;
+  }
+
+  getFirstPlacesForPlayer(playerId: number, mode: number): Promise<Beatmap[]> {
+    return this.getBeatmapsCollection()
+      .find({ 'firstPlace.playerId': playerId, mode: mode.toString() })
+      .sort({ difficulty: -1 })
+      .project({ scores: 0 })
+      .toArray() as Promise<Beatmap[]>;
+  }
+
+  async getFirstPlaceTop(mode: number, count: number): Promise<{ playerName: string; count: number }[]> {
+    const ranking: Record<string, number> = {};
+
+    await this.getBeatmapsCollection()
+      .find({ mode: mode.toString(), firstPlace: { $exists: true } })
+      .project({ _id: 0, 'firstPlace.playerName': 1 })
+      .forEach((data) => {
+        const playerName = (data as Beatmap).firstPlace?.playerName;
+        if (!playerName) return;
+
+        if (ranking[playerName]) {
+          ranking[playerName] += 1;
+        } else {
+          ranking[playerName] = 1;
+        }
+      });
+
+    const keys = Object.keys(ranking);
+    keys.sort((a, b) => ranking[b] - ranking[a]);
+
+    const topList = keys.map((key) => ({
+      playerName: key,
+      count: ranking[key],
+    }));
+
+    return topList.slice(0, count);
+  }
+
+  async getMapsForPlayer(playerId: string, mode: number): Promise<Beatmap[]> {
+    const beatmaps = await this.getBeatmapsCollection()
+      .find({ mode: mode.toString(), 'scores.playerId': parseInt(playerId, 10) })
+      .project({ firstplace: 0 })
+      .toArray();
+
+    return beatmaps as Beatmap[];
+  }
+
+  async getMapIds(): Promise<string[]> {
+    return await this.getBeatmapsCollection()
+      .find()
+      .project({ _id: 1 })
+      .map((document) => {
+        const beatmap = document as { _id: string };
+        return beatmap._id;
+      })
+      .toArray();
+  }
+
+  override stop(): void {
+    this.client.close().catch(console.error);
+  }
 }
 
-process.on('exit', exitHandler.bind(null, { cleanup: true }));
-
-process.on('SIGINT', exitHandler.bind(null, { exit: true }));
-process.on('SIGTERM', exitHandler.bind(null, { exit: true }));
-process.on('SIGUSR1', exitHandler.bind(null, { exit: true }));
-process.on('SIGUSR2', exitHandler.bind(null, { exit: true }));
-
-process.on('uncaughtException', (code) => {
-  console.error(code);
-  exitHandler({ exit: true });
-});
+const databaseService = new DatabaseService();
+export default databaseService;

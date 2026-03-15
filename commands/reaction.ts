@@ -1,6 +1,6 @@
 import { DMChannel } from 'discord.js';
 import RawEvent from '../interfaces/rawEvent';
-import { getBotId, getUser } from '../services/discordService';
+import discordService from '../services/discordService';
 import { getOrCreateDMChannel } from './utils';
 
 async function deleteMessageFromChannel(channel: DMChannel, messageId: string) {
@@ -13,9 +13,9 @@ export default async function run(event: RawEvent): Promise<void> {
 
   if (reaction.emoji.id) return;
   if (reaction.emoji.name !== '✅' && reaction.emoji.name !== '☑️' && reaction.emoji.name !== '✔️') return;
-  if (reaction.user_id === getBotId()) return;
+  if (reaction.user_id === discordService.getBotId()) return;
 
-  const user = await getUser(reaction.user_id);
+  const user = await discordService.getUser(reaction.user_id);
   if (!user) return;
 
   const channel = await getOrCreateDMChannel(reaction.channel_id, user);

@@ -9,8 +9,8 @@ import {
   tryGetUser
 } from './utils';
 import { generateHtmlForMaps } from '../services/htmlService';
-import { getUser } from '../services/osuApiService';
-import { getFirstPlacesForPlayer, getMapsWithNoScores } from '../services/databaseService';
+import osuApiService from '../services/osuApiService';
+import databaseService from '../services/databaseService';
 import LocalUser from '../classes/localUser';
 import { replyToInteraction, replyToInteractionApi } from './manager';
 import { GeneralOptions } from '../enums/command';
@@ -20,9 +20,9 @@ async function countThroughMapIds(user: LocalUser | null, mode: number) {
 
   let rows;
   if (userId) {
-    rows = await getFirstPlacesForPlayer(userId, mode);
+    rows = await databaseService.getFirstPlacesForPlayer(userId, mode);
   } else {
-    rows = await getMapsWithNoScores(mode);
+    rows = await databaseService.getMapsWithNoScores(mode);
   }
 
   return {
@@ -38,12 +38,12 @@ async function sendReply(
   responseText: string,
   filename: string
 ) {
-  const channel = interaction.channel
-    || await getOrCreateDMChannel(interaction.channelId, interaction.user);
+  const channel = interaction.channel ||
+    await getOrCreateDMChannel(interaction.channelId, interaction.user);
 
   if (
-    !(channel instanceof TextChannel)
-    && !(channel instanceof DMChannel)
+    !(channel instanceof TextChannel) &&
+    !(channel instanceof DMChannel)
   ) {
     await replyWithInvalidChannel(interaction);
     return;
@@ -76,7 +76,7 @@ export default async function run(interaction: CommandInteraction): Promise<void
   }
 
   const targetUser = getUsernameFromOptions(interaction);
-  const user = targetUser !== null ? await getUser(targetUser) : await tryGetUser(interaction.user);
+  const user = targetUser !== null ? await osuApiService.getUser(targetUser) : await tryGetUser(interaction.user);
 
   if (user === null) {
     await replyToInteraction(interaction, { content: 'User not found', ephemeral: true });

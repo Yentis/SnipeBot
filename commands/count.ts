@@ -4,8 +4,8 @@ import {
   getUsernameFromOptions,
   tryGetUser
 } from './utils';
-import { getUser } from '../services/osuApiService';
-import { getFirstPlacesForPlayer, getMapsWithNoScores } from '../services/databaseService';
+import osuApiService from '../services/osuApiService';
+import databaseService from '../services/databaseService';
 import LocalUser from '../classes/localUser';
 import { replyToInteraction } from './manager';
 import { GeneralOptions } from '../enums/command';
@@ -15,9 +15,9 @@ async function countThroughMapIds(user: LocalUser | null, mode: number) {
 
   let rows;
   if (userId) {
-    rows = await getFirstPlacesForPlayer(userId, mode);
+    rows = await databaseService.getFirstPlacesForPlayer(userId, mode);
   } else {
-    rows = await getMapsWithNoScores(mode);
+    rows = await databaseService.getMapsWithNoScores(mode);
   }
 
   return rows.length;
@@ -53,7 +53,7 @@ export default async function run(interaction: CommandInteraction): Promise<void
   }
 
   const targetUser = getUsernameFromOptions(interaction);
-  const user = targetUser !== null ? await getUser(targetUser) : await tryGetUser(interaction.user);
+  const user = targetUser !== null ? await osuApiService.getUser(targetUser) : await tryGetUser(interaction.user);
 
   if (user === null) {
     await replyToInteraction(interaction, { content: 'User not found', ephemeral: true });

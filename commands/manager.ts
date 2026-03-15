@@ -5,7 +5,7 @@ import {
   DMChannel,
   InteractionReplyOptions,
 } from 'discord.js';
-import { getLinkedChannels } from '../services/settingsService';
+import settingsService from '../services/settingsService';
 import Command, { DeleteOptions, EchoOptions, GeneralOptions, SnipeOptions, TopOptions } from '../enums/command';
 import RawEvent from '../interfaces/rawEvent';
 import onReaction from './reaction';
@@ -59,7 +59,7 @@ export default async function handleCommand(
     return;
   }
 
-  if (!(channel instanceof DMChannel) && !getLinkedChannels().includes(channel.id)) {
+  if (!(channel instanceof DMChannel) && !settingsService.getLinkedChannels().includes(channel.id)) {
     await replyWithInvalidChannel(interaction);
     return;
   }

@@ -9,8 +9,8 @@ import {
   tryGetUser
 } from './utils';
 import { generateHtmlForSnipes } from '../services/htmlService';
-import { getUser } from '../services/osuApiService';
-import { getMapsForPlayer } from '../services/databaseService';
+import osuApiService from '../services/osuApiService';
+import databaseService from '../services/databaseService';
 import LocalUser from '../classes/localUser';
 import Beatmap from '../classes/database/beatmap';
 import Score from '../classes/database/score';
@@ -76,7 +76,7 @@ export default async function run(interaction: CommandInteraction): Promise<void
   }
 
   const targetUser = getUsernameFromOptions(interaction);
-  const user = targetUser !== null ? await getUser(targetUser) : await tryGetUser(interaction.user);
+  const user = targetUser !== null ? await osuApiService.getUser(targetUser) : await tryGetUser(interaction.user);
 
   if (user === null) {
     await replyToInteraction(interaction, { content: 'User was not found' });
@@ -84,7 +84,7 @@ export default async function run(interaction: CommandInteraction): Promise<void
   }
 
   const mode = getModeFromOptions(interaction);
-  const maps = await getMapsForPlayer(user.userId, mode);
+  const maps = await databaseService.getMapsForPlayer(user.userId, mode);
   const result = getListOfSnipedScores(maps, user);
 
   if (result.amount === 0) {

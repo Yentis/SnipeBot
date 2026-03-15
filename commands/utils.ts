@@ -7,9 +7,9 @@ import {
 } from 'discord.js';
 import LocalUser from '../classes/localUser';
 import { GeneralOptions } from '../enums/command';
-import { getChannel } from '../services/discordService';
-import { getUser } from '../services/osuApiService';
-import { getLinkedUsers } from '../services/userLinkingService';
+import discordService from '../services/discordService';
+import osuApiService from '../services/osuApiService';
+import userLinkingService from '../services/userLinkingService';
 import { replyToInteraction } from './manager';
 
 export const Mode: Record<string, number> = {
@@ -23,10 +23,10 @@ const ownerId = process.env.OWNER_ID;
 if (!ownerId) console.warn('OWNER_ID environment variable not defined!');
 
 export async function tryGetUser(user: User): Promise<LocalUser | null> {
-  const userId = getLinkedUsers()[user.id];
-  if (userId !== undefined) return getUser(userId.toString());
+  const userId = userLinkingService.getLinkedUsers()[user.id];
+  if (userId !== undefined) return osuApiService.getUser(userId.toString());
 
-  return getUser(user.username);
+  return osuApiService.getUser(user.username);
 }
 
 export function getUsernameFromOptions(interaction: CommandInteraction): string | null {
@@ -80,7 +80,7 @@ export async function getOrCreateDMChannel(
     return user.createDM();
   }
 
-  const channel = await getChannel(channelId);
+  const channel = await discordService.getChannel(channelId);
   if (!(channel instanceof DMChannel)) return null;
 
   return channel;

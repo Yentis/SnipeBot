@@ -1,6 +1,6 @@
 import { CommandInteraction } from 'discord.js';
 import { createDatabase } from '../services/buildService';
-import { getFailedIds } from '../services/settingsService';
+import settingsService from '../services/settingsService';
 import { replyToInteraction } from './manager';
 import { isOwner, replyWithNoPermission } from './utils';
 
@@ -10,7 +10,7 @@ export default async function run(interaction: CommandInteraction): Promise<void
     return;
   }
 
-  const failedIds = getFailedIds();
+  const failedIds = settingsService.getFailedIds();
   if (failedIds.length === 0) {
     await replyToInteraction(interaction, { content: 'Nothing to rebuild' });
     return;
